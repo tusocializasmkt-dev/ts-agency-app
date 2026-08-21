@@ -1,0 +1,14 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+const metadata = vi.hoisted(() => ({ createMediaRecord: vi.fn(), updateMediaMetadata: vi.fn(), subscribeToMediaByBrand: vi.fn(), listMediaPage: vi.fn(), getMediaById: vi.fn(), markMediaDeleted: vi.fn(), restoreMedia: vi.fn(), permanentlyDeleteMediaRecord: vi.fn() }));
+const stored = vi.hoisted(() => ({ createStorageReference: vi.fn((path) => ({ path })), uploadFile: vi.fn(), getFileDownloadUrl: vi.fn(), deleteStoredFile: vi.fn() }));
+vi.mock('../data/repositories/media.repository', () => metadata); vi.mock('../data/repositories/storage.repository', () => stored);
+import { prepareMediaUpload, startPreparedMediaUpload } from '../services/media.service';
+
+const mediaFile = () => new File(['data'], 'foto.jpg', { type: 'image/jpeg' });
+describe('media service consistency', () => {
+  beforeEach(() => { vi.clearAllMocks(); metadata.createMediaRecord.mockResolvedValue('m'); metadata.updateMediaMetadata.mockResolvedValue(undefined); stored.getFileDownloadUrl.mockResolvedValue('https://media'); stored.deleteStoredFile.mockResolvedValue(undefined); });
+  it('executa happy path e progresso', async () => { const ref = { path: 'x' }; stored.uploadFile.mockReturnValue({ cancel: vi.fn(), completion: Promise.resolve(ref) }); const progress = vi.fn(); const result = await startPreparedMediaUpload(prepareMediaUpload('b', mediaFile(), 'feed', 'm'), mediaFile(), progress).completion; expect(result.status).toBe('ready'); expect(metadata.createMediaRecord).toHaveBeenCalled(); expect(metadata.updateMediaMetadata).toHaveBeenCalledWith('b', 'm', expect.objectContaining({ status: 'ready' })); });
+  it('marca failed quando upload falha', async () => { stored.uploadFile.mockReturnValue({ cancel: vi.fn(), completion: Promise.reject(new Error('upload')) }); await expect(startPreparedMediaUpload(prepareMediaUpload('b', mediaFile(), 'feed', 'm'), mediaFile()).completion).rejects.toMatchObject({ code: 'upload-failed' }); expect(metadata.updateMediaMetadata).toHaveBeenCalledWith('b', 'm', { status: 'failed' }); });
+  it('limpa arquivo quando escrita final falha', async () => { stored.uploadFile.mockReturnValue({ cancel: vi.fn(), completion: Promise.resolve({}) }); metadata.updateMediaMetadata.mockRejectedValueOnce(new Error('metadata')).mockResolvedValueOnce(undefined); await expect(startPreparedMediaUpload(prepareMediaUpload('b', mediaFile(), 'feed', 'm'), mediaFile()).completion).rejects.toMatchObject({ code: 'metadata-write-failed' }); expect(stored.deleteStoredFile).toHaveBeenCalled(); });
+  it('propaga cancelamento controlado', async () => { stored.uploadFile.mockReturnValue({ cancel: vi.fn(), completion: Promise.reject(Object.assign(new Error('cancel'), { code: 'storage/canceled' })) }); await expect(startPreparedMediaUpload(prepareMediaUpload('b', mediaFile(), 'feed', 'm'), mediaFile()).completion).rejects.toMatchObject({ code: 'upload-failed' }); });
+});

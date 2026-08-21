@@ -1,0 +1,223 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isAdmin() { 
+      // Hardcoded admin uid or check against a dedicated admins collection
+      // For this app, we'll assume a specific UID or role field in a users collection
+      // But user requested hardcoded login, which we will handle in client logic for session
+      // Security-wise, we need a reliable way. Let's use a simple isAdmin field or specific collection.
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    
+    function isOwner(brandId) {
+      return isSignedIn() && request.auth.uid == brandId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Validations ---
+    function isValidBrand(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 100
+        && data.status in ['active', 'pending', 'suspended'];
+    }
+
+    function isValidPost(data) {
+      return data.brandId is string
+        && data.type in ['feed', 'reels', 'stories', 'carousel', 'other']
+        && data.scheduledDate is string
+        && data.status in ['pending', 'approved', 'rejected', 'changes_requested', 'scheduled']
+        && isValidPostMedia(data);
+    }
+
+    function isValidClientDecision() {
+      return existing().status == 'pending'
+        && incoming().status in ['approved', 'rejected', 'changes_requested']
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'feedback', 'updatedAt'])
+        && (incoming().status == 'approved'
+          ? incoming().feedback == ''
+          : incoming().feedback is string
+            && incoming().feedback.size() >= 3
+            && incoming().feedback.size() <= 1000);
+    }
+
+    function isCoherentHistory(postId) {
+      return incoming().previousStatus == get(/databases/$(database)/documents/posts/$(postId)).data.status
+        && incoming().newStatus == getAfter(/databases/$(database)/documents/posts/$(postId)).data.status
+        && ((incoming().action == 'approved' && incoming().newStatus == 'approved' && !('feedback' in incoming()))
+          || (incoming().action == 'rejected' && incoming().newStatus == 'rejected' && incoming().feedback is string && incoming().feedback.size() >= 3 && incoming().feedback.size() <= 1000)
+          || (incoming().action == 'changes_requested' && incoming().newStatus == 'changes_requested' && incoming().feedback is string && incoming().feedback.size() >= 3 && incoming().feedback.size() <= 1000)
+          || (incoming().action == 'resubmitted' && incoming().previousStatus in ['rejected', 'changes_requested'] && incoming().newStatus == 'pending' && !('feedback' in incoming())));
+    }
+
+    function isValidNotification(data) {
+      return data.recipientUid is string && data.recipientUid.size() > 0
+        && data.type in ['post_created', 'post_approved', 'post_rejected', 'post_changes_requested', 'post_resubmitted', 'invoice_created', 'payment_confirmed', 'payment_promise_requested', 'payment_promise_approved', 'payment_promise_rejected', 'manual']
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 100
+        && data.message is string && data.message.size() > 0 && data.message.size() <= 500
+        && data.source in ['system', 'admin']
+        && data.createdAt == request.time
+        && data.readAt == null;
+    }
+
+    function isReadOnlyUpdate() {
+      return incoming().recipientUid == existing().recipientUid
+        && incoming().diff(existing()).affectedKeys().hasOnly(['readAt'])
+        && existing().readAt == null
+        && incoming().readAt == request.time;
+    }
+
+    function isValidPostMedia(data) {
+      return !('mediaIds' in data)
+        ? !('coverMediaId' in data)
+        : data.mediaIds is list
+          && data.mediaIds.size() <= 10
+          && data.mediaIds.toSet().size() == data.mediaIds.size()
+          && (data.mediaIds.size() < 1 || data.mediaIds[0] is string)
+          && (data.mediaIds.size() < 2 || data.mediaIds[1] is string)
+          && (data.mediaIds.size() < 3 || data.mediaIds[2] is string)
+          && (data.mediaIds.size() < 4 || data.mediaIds[3] is string)
+          && (data.mediaIds.size() < 5 || data.mediaIds[4] is string)
+          && (data.mediaIds.size() < 6 || data.mediaIds[5] is string)
+          && (data.mediaIds.size() < 7 || data.mediaIds[6] is string)
+          && (data.mediaIds.size() < 8 || data.mediaIds[7] is string)
+          && (data.mediaIds.size() < 9 || data.mediaIds[8] is string)
+          && (data.mediaIds.size() < 10 || data.mediaIds[9] is string)
+          && (!('coverMediaId' in data) || (data.coverMediaId is string && data.coverMediaId in data.mediaIds));
+    }
+
+    function isValidInvoice(data) {
+      return data.brandId is string
+        && (data.amount is number || data.amount is int)
+        && data.dueDate is string
+        && data.status in ['pending', 'overdue', 'paid', 'suspended', 'cancelled'];
+    }
+
+    // --- Rules ---
+
+    // Admins collection
+    match /admins/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false; // Only manually via console or initialization script
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().recipientUid == request.auth.uid);
+      allow create: if isAdmin() && isValidNotification(incoming());
+      allow update: if isSignedIn() && (isAdmin() || existing().recipientUid == request.auth.uid) && isReadOnlyUpdate();
+      allow delete: if false;
+    }
+
+    // Agency Config
+    match /agency_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Brands
+    match /brands/{brandId} {
+      allow read: if isAdmin() || isOwner(brandId);
+      allow write: if isAdmin();
+      allow update: if isOwner(brandId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references']);
+    }
+
+    // Posts
+    match /posts/{postId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if isAdmin() && isValidPost(incoming());
+      allow update: if (isAdmin() && isValidPost(incoming()))
+        || (isSignedIn() && existing().brandId == request.auth.uid && isValidClientDecision());
+      allow delete: if isAdmin();
+
+      match /history/{historyId} {
+        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.brandId == request.auth.uid);
+        allow create: if isSignedIn()
+          && incoming().postId == postId
+          && incoming().brandId == get(/databases/$(database)/documents/posts/$(postId)).data.brandId
+          && incoming().actorUid == request.auth.uid
+          && incoming().actorRole in ['admin', 'client']
+          && incoming().action in ['approved', 'rejected', 'changes_requested', 'resubmitted']
+          && incoming().createdAt == request.time
+          && isCoherentHistory(postId)
+          && ((isAdmin() && incoming().actorRole == 'admin')
+            || (incoming().brandId == request.auth.uid && incoming().actorRole == 'client' && incoming().action != 'resubmitted'));
+        allow update, delete: if false;
+      }
+    }
+
+    // Invoices
+    match /invoices/{invoiceId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create, update: if isAdmin() && isValidInvoice(incoming());
+      allow delete: if false;
+
+      match /history/{historyId} {
+        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.brandId == request.auth.uid);
+        allow create: if isAdmin() && incoming().actorUid == request.auth.uid && incoming().actorRole == 'admin';
+        allow update, delete: if false;
+      }
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create, update, delete: if false;
+
+      match /attempts/{attemptId} {
+        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/payments/$(paymentId)).data.brandId == request.auth.uid);
+        allow create, update, delete: if false;
+      }
+
+      match /events/{eventId} {
+        allow read: if isAdmin();
+        allow create, update, delete: if false;
+      }
+    }
+
+    match /payment_idempotency/{key} {
+      allow read, write: if false;
+    }
+
+    match /payment_webhook_events/{eventId} {
+      allow read, write: if false;
+    }
+
+    match /payment_active_pix/{invoiceId} {
+      allow read, write: if false;
+    }
+
+    match /payment_rate_limits/{limitId} {
+      allow read, write: if false;
+    }
+
+    match /payment_provider_config/{configId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Metrics
+    match /metrics_organic/{metricId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    match /metrics_paid/{metricId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // Trash
+    match /trash_items/{trashId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

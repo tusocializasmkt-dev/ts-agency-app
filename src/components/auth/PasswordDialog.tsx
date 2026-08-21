@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import GlobalModal from '../ui/GlobalModal';
+
+export default function PasswordDialog({ title, processing, onClose, onConfirm }: { title: string; processing: boolean; onClose: () => void; onConfirm: (password: string) => Promise<void> }) {
+  const [password, setPassword] = useState(''); const [confirmation, setConfirmation] = useState(''); const [error, setError] = useState('');
+  const submit = async () => { if (password.length < 10) return setError('Use pelo menos 10 caracteres.'); if (password !== confirmation) return setError('As senhas não coincidem.'); try { await onConfirm(password); } catch { setError('Não foi possível definir a senha.'); } };
+  return <GlobalModal title={title} onClose={onClose} closeOnEscape={!processing} closeOnOverlay={!processing}><div className="space-y-4"><label className="block text-sm font-bold">Nova senha<input aria-label="Nova senha" type="password" autoComplete="new-password" value={password} onChange={event => setPassword(event.target.value)} className="mt-2 min-h-11 w-full border p-3" /></label><label className="block text-sm font-bold">Confirmar senha<input aria-label="Confirmar senha" type="password" autoComplete="new-password" value={confirmation} onChange={event => setConfirmation(event.target.value)} className="mt-2 min-h-11 w-full border p-3" /></label>{error && <p role="alert" className="text-sm text-red-600">{error}</p>}<div className="flex justify-end gap-3"><button disabled={processing} onClick={onClose} className="min-h-11 border px-5 font-bold">Cancelar</button><button disabled={processing} onClick={() => void submit()} className="min-h-11 bg-black px-5 font-bold text-white">{processing ? 'Salvando...' : 'Definir senha'}</button></div></div></GlobalModal>;
+}

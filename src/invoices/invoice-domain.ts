@@ -1,0 +1,15 @@
+import type { Invoice, InvoiceStatus, PaymentPromise } from '../types';
+import { PAYMENT_PROMISE_MAX_DAYS, PAYMENT_PROMISE_REASON_MAX_LENGTH, PAYMENT_PROMISE_REASON_MIN_LENGTH } from './invoice.constants';
+export class InvoiceError extends Error { constructor(public readonly code: 'invalid-amount' | 'invalid-date' | 'invalid-transition' | 'invalid-url' | 'promise-not-allowed' | 'promise-date-invalid' | 'promise-pending' | 'invalid-reason') { super(code); this.name = 'InvoiceError'; } }
+const civil = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
+};
+export const formatCurrencyBRL = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
+export function getEffectiveInvoiceStatus(invoice: Invoice, now = new Date()): InvoiceStatus { if (invoice.status !== 'pending') return invoice.status; const due = civil(invoice.dueDate); return due && due.getTime() < Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) ? 'overdue' : 'pending'; }
+export function validateInvoiceAmount(amount: number) { if (!Number.isFinite(amount) || amount <= 0 || Math.round(amount * 100) !== amount * 100) throw new InvoiceError('invalid-amount'); }
+export function validateCivilDate(value: string) { if (!civil(value)) throw new InvoiceError('invalid-date'); }
+export function validatePixLink(value?: string) { if (!value) return; try { const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); } catch { throw new InvoiceError('invalid-url'); } }
+export function assertInvoiceTransition(current: InvoiceStatus, next: InvoiceStatus) { const allowed: Record<InvoiceStatus, InvoiceStatus[]> = { pending: ['paid', 'suspended', 'cancelled'], overdue: ['paid', 'suspended', 'cancelled'], suspended: ['pending', 'cancelled'], paid: [], cancelled: [] }; if (!allowed[current].includes(next)) throw new InvoiceError('invalid-transition'); }
+export function validatePaymentPromise(invoice: Invoice, requestedDate: string, reason: string, now = new Date()): PaymentPromise { if (getEffectiveInvoiceStatus(invoice, now) !== 'overdue' || ['paid', 'cancelled', 'suspended'].includes(invoice.status)) throw new InvoiceError('promise-not-allowed'); if (invoice.paymentPromise?.status === 'pending') throw new InvoiceError('promise-pending'); const requested = civil(requestedDate); const due = civil(invoice.dueDate); const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()); if (!requested || !due || requested.getTime() < today || requested.getTime() > due.getTime() + PAYMENT_PROMISE_MAX_DAYS * 86400000) throw new InvoiceError('promise-date-invalid'); const clean = reason.trim(); if (clean.length < PAYMENT_PROMISE_REASON_MIN_LENGTH || clean.length > PAYMENT_PROMISE_REASON_MAX_LENGTH) throw new InvoiceError('invalid-reason'); return { requestedDate, reason: clean, status: 'pending' }; }

@@ -1,0 +1,5 @@
+interface GlobalErrorFallbackProps { onRetry: () => void; }
+
+export default function GlobalErrorFallback({ onRetry }: GlobalErrorFallbackProps) {
+  return <div className="min-h-screen flex items-center justify-center bg-[#FDFDFD] p-4"><div className="w-full max-w-md bg-white border border-zinc-200 p-10 rounded-3xl shadow-sm text-center"><h1 className="text-3xl font-bold tracking-tight mb-3">Não foi possível exibir esta tela</h1><p className="text-zinc-500 text-sm mb-8">Tente novamente. Se o problema continuar, retorne ao início.</p><div className="space-y-3"><button type="button" onClick={onRetry} className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-zinc-800 transition-all">Tentar novamente</button><a href="/" className="block w-full border border-zinc-200 font-bold py-4 rounded-2xl hover:bg-zinc-50 transition-all">Voltar ao início</a><button type="button" onClick={() => window.location.reload()} className="text-xs text-zinc-400 hover:text-black underline underline-offset-4">Recarregar a aplicação</button></div></div></div>;
+}

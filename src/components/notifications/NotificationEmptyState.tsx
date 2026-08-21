@@ -1,0 +1,1 @@
+export default function NotificationEmptyState() { return <div className="rounded-3xl border border-dashed border-zinc-200 p-12 text-center text-sm text-zinc-500">Você não possui notificações.</div>; }

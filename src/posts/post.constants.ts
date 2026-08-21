@@ -1,0 +1,2 @@
+export const POST_FEEDBACK_MIN_LENGTH = 3;
+export const POST_FEEDBACK_MAX_LENGTH = 1000;

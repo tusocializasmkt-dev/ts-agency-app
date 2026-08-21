@@ -1,0 +1,283 @@
+{
+  "entities": {
+    "AdminProfile": {
+      "title": "Admin Profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "enum": ["admin"] },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["email", "role"]
+    },
+    "AgencyConfig": {
+      "title": "Agency Configuration",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "socialLinks": { "type": "object", "additionalProperties": { "type": "string" } },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["name", "logoUrl", "phone", "email", "socialLinks"]
+    },
+    "Brand": {
+      "title": "Client Brand",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "cnpj": { "type": "string" },
+        "responsible": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "enum": ["active", "pending", "suspended"] },
+        "logoUrl": { "type": "string" },
+        "website": { "type": "string" },
+        "login": { "type": "string" },
+        "driveUrl": { "type": "string" },
+        "contractUrl": { "type": "string" },
+        "socialLinks": { "type": "object", "additionalProperties": { "type": "string" } },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["name", "cnpj", "responsible", "phone", "status", "website", "login", "socialLinks"]
+    },
+    "Post": {
+      "title": "Content Post",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string", "description": "ID of the owning brands document" },
+        "type": { "enum": ["feed", "reels", "stories", "carousel", "other"] },
+        "socialNetwork": { "type": "string" },
+        "objective": { "enum": ["venda", "engajamento", "autoridade", "tráfego"] },
+        "caption": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaUrls": { "type": "array", "items": { "type": "string" } },
+        "mediaIds": { "type": "array", "items": { "type": "string" }, "maxItems": 10, "uniqueItems": true, "description": "Canonical ordered references to media documents" },
+        "coverMediaId": { "type": "string", "description": "Must reference an ID present in mediaIds" },
+        "scheduledDate": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["pending", "approved", "rejected", "changes_requested", "scheduled"] },
+        "feedback": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "type", "socialNetwork", "caption", "scheduledDate", "status"]
+    },
+    "PostDecisionHistory": {
+      "title": "Post Decision History",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "brandId": { "type": "string" },
+        "action": { "enum": ["approved", "rejected", "changes_requested", "resubmitted"] },
+        "previousStatus": { "enum": ["pending", "approved", "rejected", "changes_requested", "scheduled"] },
+        "newStatus": { "enum": ["pending", "approved", "rejected", "changes_requested", "scheduled"] },
+        "feedback": { "type": "string", "maxLength": 1000 },
+        "actorUid": { "type": "string" },
+        "actorRole": { "enum": ["admin", "client"] },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["postId", "brandId", "action", "previousStatus", "newStatus", "actorUid", "actorRole", "createdAt"]
+    },
+    "Notification": {
+      "title": "Internal Notification",
+      "type": "object",
+      "properties": {
+        "recipientUid": { "type": "string" },
+        "brandId": { "type": "string" },
+        "type": { "enum": ["post_created", "post_approved", "post_rejected", "post_changes_requested", "post_resubmitted", "invoice_created", "payment_confirmed", "payment_promise_requested", "payment_promise_approved", "payment_promise_rejected", "manual"] },
+        "title": { "type": "string", "maxLength": 100 },
+        "message": { "type": "string", "maxLength": 500 },
+        "link": { "type": "string", "description": "Allowlisted internal route" },
+        "entityType": { "enum": ["post", "invoice"] },
+        "entityId": { "type": "string" },
+        "readAt": { "type": ["object", "null"], "description": "Firestore Timestamp or null" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "createdBy": { "type": "string" },
+        "source": { "enum": ["system", "admin"] }
+      },
+      "required": ["recipientUid", "type", "title", "message", "source", "createdAt"]
+    },
+    "PaymentPromise": {
+      "title": "Payment Promise",
+      "type": "object",
+      "properties": {
+        "requestedDate": { "type": "string", "format": "date" },
+        "requestedAt": { "type": "object" },
+        "reason": { "type": "string", "maxLength": 500 },
+        "status": { "enum": ["pending", "approved", "rejected"] },
+        "reviewedAt": { "type": "object" },
+        "reviewedBy": { "type": "string" },
+        "reviewNote": { "type": "string" }
+      },
+      "required": ["requestedDate", "requestedAt", "reason", "status"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string", "description": "ID of the owning brands document" },
+        "amount": { "type": "number" },
+        "dueDate": { "type": "string", "format": "date" },
+        "description": { "type": "string" },
+        "currency": { "enum": ["BRL"] },
+        "referenceMonth": { "type": "string", "description": "YYYY-MM" },
+        "originalDueDate": { "type": "string", "format": "date" },
+        "status": { "enum": ["pending", "overdue", "paid", "suspended", "cancelled"] },
+        "boletoUrl": { "type": "string" },
+        "boletoMediaId": { "type": "string" },
+        "pixKey": { "type": "string" },
+        "pixKeyType": { "enum": ["cpf", "cnpj", "email", "phone", "random"] },
+        "pixLink": { "type": "string", "format": "uri" },
+        "promisedPaymentDate": { "type": "string", "format": "date" },
+        "paymentPromise": { "$ref": "#/entities/PaymentPromise" },
+        "paidAt": { "type": "object", "description": "Firestore Timestamp" },
+        "cancelledAt": { "type": "object", "description": "Firestore Timestamp" },
+        "suspendedAt": { "type": "object", "description": "Firestore Timestamp" },
+        "createdBy": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "activePaymentId": { "type": "string" },
+        "paymentProvider": { "enum": ["mercado_pago", "inter", "other", "manual"] },
+        "paymentMethodPreference": { "enum": ["pix", "credit_card", "boleto"] },
+        "externalReference": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "description", "amount", "currency", "originalDueDate", "dueDate", "status", "createdBy", "createdAt", "updatedAt"]
+    },
+    "InvoiceHistory": {
+      "title": "Immutable Invoice History", "type": "object",
+      "properties": { "invoiceId": { "type": "string" }, "brandId": { "type": "string" }, "action": { "enum": ["created", "edited", "amount_changed", "due_date_changed", "boleto_replaced", "marked_paid", "suspended", "resumed", "cancelled", "payment_promise_requested", "payment_promise_approved", "payment_promise_rejected"] }, "previousStatus": { "type": "string" }, "newStatus": { "type": "string" }, "previousAmount": { "type": "number" }, "newAmount": { "type": "number" }, "previousDueDate": { "type": "string" }, "newDueDate": { "type": "string" }, "previousBoletoMediaId": { "type": "string" }, "newBoletoMediaId": { "type": "string" }, "note": { "type": "string" }, "actorUid": { "type": "string" }, "actorRole": { "enum": ["admin", "client"] }, "createdAt": { "type": "object" } },
+      "required": ["invoiceId", "brandId", "action", "actorUid", "actorRole", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment", "type": "object",
+      "properties": { "invoiceId": { "type": "string" }, "brandId": { "type": "string" }, "provider": { "enum": ["mercado_pago", "inter", "other", "manual"] }, "providerPaymentId": { "type": "string" }, "method": { "enum": ["pix", "credit_card", "boleto"] }, "status": { "enum": ["created", "pending", "processing", "approved", "rejected", "cancelled", "expired", "refunded"] }, "amountCents": { "type": "integer", "minimum": 1 }, "currency": { "enum": ["BRL"] }, "externalReference": { "type": "string" }, "idempotencyKey": { "type": "string" }, "currentAttemptId": { "type": "string" }, "createdAt": { "type": "object" }, "updatedAt": { "type": "object" }, "paidAt": { "type": "object" }, "expiresAt": { "type": "object" }, "cancelledAt": { "type": "object" }, "failureCode": { "type": "string" }, "failureMessage": { "type": "string" } },
+      "required": ["invoiceId", "brandId", "provider", "method", "status", "amountCents", "currency", "externalReference", "idempotencyKey", "createdAt", "updatedAt"]
+    },
+    "PaymentAttempt": {
+      "title": "Payment Attempt", "type": "object",
+      "properties": { "paymentId": { "type": "string" }, "invoiceId": { "type": "string" }, "brandId": { "type": "string" }, "provider": { "enum": ["mercado_pago", "inter", "other", "manual"] }, "method": { "enum": ["pix", "credit_card", "boleto"] }, "status": { "enum": ["created", "pending", "processing", "approved", "rejected", "cancelled", "expired", "failed"] }, "amountCents": { "type": "integer", "minimum": 1 }, "providerAttemptId": { "type": "string" }, "idempotencyKey": { "type": "string" }, "createdAt": { "type": "object" }, "completedAt": { "type": "object" }, "failureCode": { "type": "string" }, "failureReason": { "type": "string" } },
+      "required": ["paymentId", "invoiceId", "brandId", "provider", "method", "status", "amountCents", "idempotencyKey", "createdAt"]
+    },
+    "PaymentEvent": {
+      "title": "Payment Event", "type": "object",
+      "properties": { "paymentId": { "type": "string" }, "invoiceId": { "type": "string" }, "provider": { "enum": ["mercado_pago", "inter", "other", "manual"] }, "providerEventId": { "type": "string" }, "type": { "type": "string" }, "status": { "type": "string" }, "receivedAt": { "type": "object" }, "processedAt": { "type": "object" }, "processingStatus": { "enum": ["received", "processing", "processed", "failed", "ignored"] }, "payloadReference": { "type": "string" }, "error": { "type": "string" } },
+      "required": ["paymentId", "invoiceId", "provider", "type", "receivedAt", "processingStatus"]
+    },
+    "PaymentProviderConfig": {
+      "title": "Non-secret Payment Provider Configuration", "type": "object",
+      "properties": { "provider": { "enum": ["mercado_pago", "inter", "other", "manual"] }, "enabled": { "type": "boolean" }, "environment": { "enum": ["sandbox", "production"] }, "supportedMethods": { "type": "array", "items": { "enum": ["pix", "credit_card", "boleto"] } }, "configuredAt": { "type": "object" }, "configuredBy": { "type": "string" } },
+      "required": ["provider", "enabled", "environment", "supportedMethods", "configuredBy"]
+    },
+    "PaymentIdempotency": {
+      "title": "Backend Payment Idempotency",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "method": { "enum": ["pix", "credit_card", "boleto"] },
+        "paymentId": { "type": "string" },
+        "amountCents": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["created"] },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["uid", "invoiceId", "method", "paymentId", "amountCents", "status", "createdAt"]
+    },
+    "OrganicMetrics": {
+      "title": "Organic Metrics",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string", "description": "ID of the owning brands document" },
+        "month": { "type": "string", "description": "Period in YYYY-MM format" },
+        "followers": { "type": "number" },
+        "engagement": { "type": "number" },
+        "reach": { "type": "number" },
+        "impressions": { "type": "number" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "month", "followers", "engagement", "reach", "impressions"]
+    },
+    "PaidMetrics": {
+      "title": "Paid Metrics",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string", "description": "ID of the owning brands document" },
+        "month": { "type": "string", "description": "Period in YYYY-MM format" },
+        "investment": { "type": "number" },
+        "clicks": { "type": "number" },
+        "cpc": { "type": "number" },
+        "ctr": { "type": "number" },
+        "conversions": { "type": "number" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "month", "investment", "clicks", "cpc", "ctr", "conversions"]
+    },
+    "MediaAsset": {
+      "title": "Brand Media Asset",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "originalFileName": { "type": "string" },
+        "mediaType": { "enum": ["image", "video", "document"] },
+        "category": { "enum": ["feed", "stories", "reels", "carousel", "invoice", "other"] },
+        "mimeType": { "type": "string" },
+        "sizeBytes": { "type": "number" },
+        "storagePath": { "type": "string" },
+        "downloadUrl": { "type": "string" },
+        "status": { "enum": ["pending", "ready", "failed", "deleted"] },
+        "source": { "enum": ["upload"] },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" },
+        "deletedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "fileName", "originalFileName", "mediaType", "category", "mimeType", "sizeBytes", "storagePath", "status", "source"]
+    },
+    "TrashItem": {
+      "title": "Deleted Post",
+      "type": "object",
+      "properties": {
+        "brandId": { "type": "string", "description": "ID of the owning brands document" },
+        "type": { "enum": ["feed", "reels", "stories", "carousel", "other"] },
+        "socialNetwork": { "type": "string" },
+        "caption": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "mediaUrls": { "type": "array", "items": { "type": "string" } },
+        "scheduledDate": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["pending", "approved", "rejected", "changes_requested", "scheduled"] },
+        "feedback": { "type": "string" },
+        "sourceCollection": { "enum": ["posts"] },
+        "deletedAt": { "type": "object", "description": "Firestore Timestamp" },
+        "createdAt": { "type": "object", "description": "Firestore Timestamp" },
+        "updatedAt": { "type": "object", "description": "Firestore Timestamp" }
+      },
+      "required": ["brandId", "type", "socialNetwork", "caption", "scheduledDate", "status"]
+    }
+  },
+  "firestore": {
+    "/admins/{userId}": { "schema": "AdminProfile", "description": "Administrative profiles; document ID equals Firebase Auth UID" },
+    "/agency_config/default": { "schema": "AgencyConfig", "description": "Global agency settings" },
+    "/brands/{brandId}": { "schema": "Brand", "description": "Client brands; document ID equals the client Firebase Auth UID" },
+    "/posts/{postId}": { "schema": "Post", "description": "Content posts linked to a brand by brandId" },
+    "/posts/{postId}/history/{historyId}": { "schema": "PostDecisionHistory", "description": "Immutable decision audit trail ordered by createdAt" },
+    "/notifications/{notificationId}": { "schema": "Notification", "description": "Internal notifications queried by recipientUid and createdAt desc; initial page limited to 50" },
+    "/invoices/{invoiceId}": { "schema": "Invoice", "description": "Invoices linked to a brand by brandId" },
+    "/invoices/{invoiceId}/history/{historyId}": { "schema": "InvoiceHistory", "description": "Immutable financial audit history" },
+    "/payments/{paymentId}": { "schema": "Payment", "description": "Backend-owned payment records; frontend reads only" },
+    "/payments/{paymentId}/attempts/{attemptId}": { "schema": "PaymentAttempt", "description": "Immutable payment attempts" },
+    "/payments/{paymentId}/events/{eventId}": { "schema": "PaymentEvent", "description": "Idempotent provider/backend events" },
+    "/payment_provider_config/default": { "schema": "PaymentProviderConfig", "description": "Non-secret provider configuration only" },
+    "/payment_idempotency/{key}": { "schema": "PaymentIdempotency", "description": "Backend-only ownership and replay control; no client access" },
+    "/metrics_organic/{metricId}": { "schema": "OrganicMetrics", "description": "Organic metrics linked to a brand by brandId" },
+    "/metrics_paid/{metricId}": { "schema": "PaidMetrics", "description": "Paid metrics linked to a brand by brandId" },
+    "/trash_items/{trashId}": { "schema": "TrashItem", "description": "Deleted posts retained until manual restore or permanent deletion" },
+    "/media/{mediaId}": { "schema": "MediaAsset", "description": "Future media metadata linked to a brand; document ID is not duplicated in its body" }
+  }
+}

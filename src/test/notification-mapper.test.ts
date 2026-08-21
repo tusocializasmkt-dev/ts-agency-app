@@ -1,0 +1,3 @@
+import { describe, expect, it } from 'vitest';
+import { mapNotification, toNotificationWriteData } from '../data/mappers/notification.mapper';
+describe('notification mapper', () => { it('injeta ID, normaliza timestamps e remove undefined', () => { const date = new Date('2026-01-01'); const mapped = mapNotification({ id: 'n', data: () => ({ recipientUid: 'u', type: 'manual', title: 'T', message: 'M', source: 'admin', createdAt: { toDate: () => date } }) } as never); expect(mapped).toMatchObject({ id: 'n', createdAt: date }); expect(toNotificationWriteData({ recipientUid: 'u', type: 'manual', title: 'T', message: 'M', source: 'admin', link: undefined })).not.toHaveProperty('link'); }); });

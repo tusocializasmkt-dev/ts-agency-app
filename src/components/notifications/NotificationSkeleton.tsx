@@ -1,0 +1,1 @@
+export default function NotificationSkeleton() { return <div aria-label="Carregando notificações" className="space-y-3">{[1, 2, 3].map(item => <div key={item} className="h-24 animate-pulse rounded-2xl bg-zinc-100" />)}</div>; }

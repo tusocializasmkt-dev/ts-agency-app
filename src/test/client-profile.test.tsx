@@ -1,0 +1,6 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import ClientProfile from '../components/Client/ClientProfile';
+const state = vi.hoisted(() => ({ update: vi.fn(), success: vi.fn(), error: vi.fn(), brand: { id: 'legacy', name: 'Marca antiga', responsible: '', phone: '', website: '', email: '', cnpj: '00', status: 'active', socialLinks: {} } }));
+vi.mock('../hooks', () => ({ useBrands: () => ({ brand: state.brand, loading: false, updateClientProfile: state.update }), useFeedback: () => ({ success: state.success, error: state.error }) }));
+describe('Meu Perfil colaborativo', () => { it('aceita Brand antiga e não oferece controles administrativos', async () => { state.update.mockResolvedValue(undefined); render(<ClientProfile brandId="legacy" />); expect(screen.getByDisplayValue('Marca antiga')).toBeInTheDocument(); fireEvent.change(screen.getByLabelText('Segmento'), { target: { value: 'Varejo' } }); fireEvent.click(screen.getByRole('button', { name: /Salvar perfil/ })); await waitFor(() => expect(state.update).toHaveBeenCalledWith('legacy', expect.objectContaining({ name: 'Marca antiga', segment: 'Varejo' }))); expect(screen.queryByLabelText('Status do cliente')).not.toBeInTheDocument(); expect(screen.queryByLabelText('Observações internas')).not.toBeInTheDocument(); }); });

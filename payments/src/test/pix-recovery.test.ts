@@ -1,0 +1,13 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import type { Firestore } from 'firebase-admin/firestore'; import type { AuthenticatedActor } from '../auth/actor.js'; import type { PaymentProvider } from '../payments/payment-provider.js'; import type { PixRepository, StoredPixPayment } from '../payments/payment.repository.js'; import { PixPaymentService } from '../payments/pix-payment.service.js';
+const actor: AuthenticatedActor = { uid: 'client-a', role: 'client', brandId: 'client-a' }; const key = '550e8400-e29b-41d4-a716-446655440000';
+class MemoryPixRepository implements PixRepository {
+  uncertain = 0; stored: StoredPixPayment = { status: 'created', invoiceId: 'invoice-a', brandId: 'client-a', amountCents: 1000, idempotencyKey: key };
+  async createIntent(actorValue: AuthenticatedActor, invoiceId: string, build: Parameters<PixRepository['createIntent']>[2]) { const value = build({ brandId: actorValue.uid, amount: 10, status: 'pending' }, 'payment-a'); this.stored = { ...this.stored, ...value.payment }; return { paymentId: 'payment-a', invoiceId, method: 'pix' as const, status: 'created' as const, amountCents: 1000, currency: 'BRL' as const }; }
+  async getPayment() { return this.stored; }
+  async saveCreatedPix(_id: string, provider: Awaited<ReturnType<PaymentProvider['createPixPayment']>>) { if (!provider.pix) throw new Error('missing-pix'); return { paymentId: 'payment-a', invoiceId: 'invoice-a', status: provider.status === 'processing' ? 'processing' as const : 'pending' as const, amountCents: 1000, currency: 'BRL' as const, pix: provider.pix }; }
+  async markProviderOutcomeUncertain() { this.uncertain += 1; }
+}
+const db = { doc: (path: string) => ({ get: async () => ({ data: () => path.startsWith('brands/') ? { email: 'buyer@testuser.com', responsible: 'Buyer Test' } : { description: 'Invoice' } }) }) } as unknown as Firestore;
+const unimplemented = async (): Promise<never> => { throw new Error('not-implemented'); };
+test('timeout marca resultado incerto e preserva retry idempotente', async () => { const repository = new MemoryPixRepository(); const provider: PaymentProvider = { createPixPayment: async () => { throw new Error('timeout'); }, getPaymentStatus: async () => { throw new Error('unused'); }, createCardPayment: unimplemented, createBoletoPayment: unimplemented, refundPayment: unimplemented }; await assert.rejects(new PixPaymentService(db, repository, provider).create(actor, { invoiceId: 'invoice-a', idempotencyKey: key }), /timeout/); assert.equal(repository.uncertain, 1); assert.equal(repository.stored.idempotencyKey, key); });
