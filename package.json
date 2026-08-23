@@ -13,7 +13,7 @@
     "test:run": "vitest run --dir src",
     "functions:build": "npm.cmd --prefix functions run build",
     "functions:test": "npm.cmd --prefix functions run test"
-    ,"test:rules": "firebase emulators:exec --only firestore --project demo-ts-agency-rules \"node --test test/rules/*.test.mjs\""
+    ,"test:rules": "firebase emulators:exec --only firestore,storage --project demo-ts-agency-rules \"node --test test/rules/*.test.mjs\""
   },
   "dependencies": {
     "@google/genai": "^1.29.0",

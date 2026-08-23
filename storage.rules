@@ -1,0 +1,28 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Storage Rules cannot read a named Firestore database. Admin access therefore
+    // uses a Firebase Auth custom claim; clients continue to use UID == brandId.
+    function isAdmin() {
+      return isSignedIn()
+        && 'admin' in request.auth.token
+        && request.auth.token.admin == true;
+    }
+
+    function isOwner(brandId) {
+      return isSignedIn() && request.auth.uid == brandId;
+    }
+
+    match /brands/{brandId}/media/{mediaId}/{fileName} {
+      allow read, write: if isAdmin() || isOwner(brandId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -104,6 +104,22 @@ service cloud.firestore {
         && data.status in ['pending', 'overdue', 'paid', 'suspended', 'cancelled'];
     }
 
+    function isValidMedia(data) {
+      return data.brandId is string
+        && isValidId(data.brandId)
+        && data.fileName is string
+        && data.originalFileName is string
+        && data.mediaType in ['image', 'video', 'document']
+        && data.category in ['feed', 'stories', 'reels', 'carousel', 'invoice', 'other']
+        && data.mimeType is string
+        && data.sizeBytes is int
+        && data.sizeBytes >= 0
+        && data.storagePath is string
+        && data.storagePath.matches('^brands/' + data.brandId + '/media/[a-zA-Z0-9_-]+/[^/]+$')
+        && data.status in ['pending', 'ready', 'failed', 'deleted']
+        && data.source == 'upload';
+    }
+
     // --- Rules ---
 
     // Admins collection
@@ -213,6 +229,16 @@ service cloud.firestore {
     match /metrics_paid/{metricId} {
       allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
       allow write: if isAdmin();
+    }
+
+    // Media metadata. Ownership follows the existing media.brandId contract.
+    match /media/{mediaId} {
+      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if isValidMedia(incoming()) && (isAdmin() || isOwner(incoming().brandId));
+      allow update: if isValidMedia(incoming())
+        && incoming().brandId == existing().brandId
+        && (isAdmin() || existing().brandId == request.auth.uid);
+      allow delete: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
     }
 
     // Trash
