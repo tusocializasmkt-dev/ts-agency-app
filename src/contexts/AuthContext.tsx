@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             const brandDoc = await getDoc(doc(db, 'brands', user.uid));
             if (!active || event !== authEvent) return;
-            if (brandDoc.exists() && brandDoc.data().status !== 'suspended') {
+            if (brandDoc.exists() && brandDoc.data().accessEnabled !== false) {
               setRole('client');
               setBrandId(user.uid);
             } else if (brandDoc.exists()) {

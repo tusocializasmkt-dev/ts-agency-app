@@ -5,7 +5,7 @@ export type FirestoreTimestamp = Timestamp | FieldValue;
 export type ISODateString = string;
 export type YearMonth = string;
 
-export type BrandStatus = 'active' | 'pending' | 'suspended';
+export type BrandStatus = 'active' | 'warning' | 'delinquent' | 'suspended' | 'banning';
 export type PostType = 'feed' | 'reels' | 'stories' | 'carousel' | 'other';
 export type PostStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'scheduled';
 export type PostDecisionAction = 'approved' | 'rejected' | 'changes_requested' | 'resubmitted';

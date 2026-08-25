@@ -1,48 +1,99 @@
 import { createHash } from 'node:crypto';
-import { getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { FieldValue, getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { authenticateInternal, hashPassword, normalizeEmail, type InternalCredential, type InternalRole } from './internal-auth.js';
 import { assertAdminAccess, createClientAccess as createAccess, createClientWithAccess as createWithAccess, resetClientPassword as resetPassword, setClientAccessStatus as setAccessStatus, type ClientAccessDependencies } from './user-access.js';
 
-const app = getApps()[0] ?? initializeApp();
-const db = getFirestore(app, process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58');
-const credentials = db.collection('internal_credentials');
-const limits = db.collection('internal_auth_limits');
+type AdminServices = Awaited<ReturnType<typeof initializeAdminServices>>;
+let adminServicesPromise: Promise<AdminServices> | undefined;
+
+async function initializeAdminServices() {
+  const [{ getApps, initializeApp }, { getAuth }, { FieldValue, getFirestore, Timestamp }] = await Promise.all([
+    import('firebase-admin/app'),
+    import('firebase-admin/auth'),
+    import('firebase-admin/firestore'),
+  ]);
+  const app = getApps()[0] ?? initializeApp();
+  const db = getFirestore(app, process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58');
+  return { app, auth: getAuth(app), db, FieldValue, Timestamp };
+}
+
+function getAdminServices(): Promise<AdminServices> {
+  adminServicesPromise ??= initializeAdminServices().catch(error => {
+    adminServicesPromise = undefined;
+    throw error;
+  });
+  return adminServicesPromise;
+}
+
 const limitId = (email: string) => createHash('sha256').update(email).digest('hex');
 const windowMs = 15 * 60 * 1000;
 const maxAttempts = 5;
 
-const dependencies = {
-  async findCredential(emailNormalized: string) {
-    const result = await credentials.where('emailNormalized', '==', emailNormalized).limit(1).get();
-    return result.empty ? null : result.docs[0].data() as InternalCredential;
-  },
-  async isRateLimited(emailNormalized: string) {
-    const snapshot = await limits.doc(limitId(emailNormalized)).get();
-    if (!snapshot.exists) return false;
-    const data = snapshot.data()!;
-    const startedAt = data.windowStartedAt instanceof Timestamp ? data.windowStartedAt.toMillis() : 0;
-    return Date.now() - startedAt < windowMs && Number(data.attempts) >= maxAttempts;
-  },
-  async recordFailure(emailNormalized: string) {
-    const reference = limits.doc(limitId(emailNormalized));
-    await db.runTransaction(async transaction => {
-      const snapshot = await transaction.get(reference); const now = Date.now(); const data = snapshot.data();
-      const startedAt = data?.windowStartedAt instanceof Timestamp ? data.windowStartedAt.toMillis() : 0;
-      transaction.set(reference, now - startedAt >= windowMs ? { attempts: 1, windowStartedAt: FieldValue.serverTimestamp() } : { attempts: FieldValue.increment(1) }, { merge: true });
-    });
-  },
-  async clearFailures(emailNormalized: string) { await limits.doc(limitId(emailNormalized)).delete(); },
-  async profileExists(credential: InternalCredential) {
-    const collection = credential.role === 'admin' ? 'admins' : 'brands';
-    const profile = await db.collection(collection).doc(credential.uid).get();
-    if (!profile.exists) return false;
-    return credential.role === 'admin' || profile.data()?.status !== 'suspended';
-  },
-  createCustomToken: (uid: string, role: InternalRole) => getAuth(app).createCustomToken(uid, { internalAuth: true, role }),
+async function createInternalDependencies() {
+  const { app, auth, db, FieldValue, Timestamp } = await getAdminServices();
+  const credentials = db.collection('internal_credentials');
+  const limits = db.collection('internal_auth_limits');
+  return {
+    async findCredential(emailNormalized: string) {
+      const result = await credentials.where('emailNormalized', '==', emailNormalized).limit(1).get();
+      return result.empty ? null : result.docs[0].data() as InternalCredential;
+    },
+    async isRateLimited(emailNormalized: string) {
+      const snapshot = await limits.doc(limitId(emailNormalized)).get();
+      if (!snapshot.exists) return false;
+      const data = snapshot.data()!;
+      const startedAt = data.windowStartedAt instanceof Timestamp ? data.windowStartedAt.toMillis() : 0;
+      return Date.now() - startedAt < windowMs && Number(data.attempts) >= maxAttempts;
+    },
+    async recordFailure(emailNormalized: string) {
+      const reference = limits.doc(limitId(emailNormalized));
+      await db.runTransaction(async transaction => {
+        const snapshot = await transaction.get(reference);
+        const now = Date.now();
+        const data = snapshot.data();
+        const startedAt = data?.windowStartedAt instanceof Timestamp ? data.windowStartedAt.toMillis() : 0;
+        transaction.set(reference, now - startedAt >= windowMs ? { attempts: 1, windowStartedAt: FieldValue.serverTimestamp() } : { attempts: FieldValue.increment(1) }, { merge: true });
+      });
+    },
+    async clearFailures(emailNormalized: string) { await limits.doc(limitId(emailNormalized)).delete(); },
+    async profileExists(credential: InternalCredential) {
+      const collection = credential.role === 'admin' ? 'admins' : 'brands';
+      const profile = await db.collection(collection).doc(credential.uid).get();
+      if (!profile.exists) return false;
+      return credential.role === 'admin' || profile.data()?.accessEnabled !== false;
+    },
+    createCustomToken: (uid: string, role: InternalRole) => auth.createCustomToken(uid, { internalAuth: true, role }),
+  };
+}
+
+async function requireAdmin(uid?: string) {
+  const { db } = await getAdminServices();
+  try { await assertAdminAccess(uid, async id => (await db.collection('admins').doc(id).get()).exists); }
+  catch { throw new HttpsError('permission-denied', 'Acesso negado.'); }
+}
+
+async function createAccessDependencies(): Promise<ClientAccessDependencies> {
+  const { auth, db, FieldValue } = await getAdminServices();
+  return {
+    async brandExists(brandId) { return (await db.collection('brands').doc(brandId).get()).exists; },
+    async createUser(data) { await auth.createUser(data); },
+    async updatePassword(uid, password) { await auth.updateUser(uid, { password }); },
+    async updateDisabled(uid, disabled) { await auth.updateUser(uid, { disabled }); },
+    async revokeRefreshTokens(uid) { await auth.revokeRefreshTokens(uid); },
+    async updateBrand(brandId, data) { await db.collection('brands').doc(brandId).update({ ...data, updatedAt: FieldValue.serverTimestamp() }); },
+  };
+}
+
+const accessError = (error: unknown): never => {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+  const message = error instanceof Error ? error.message : '';
+  if (code.includes('email-already-exists') || code.includes('uid-already-exists')) throw new HttpsError('already-exists', 'Este cliente já possui um acesso no Firebase Auth.');
+  if (code.includes('user-not-found')) throw new HttpsError('not-found', 'Acesso do cliente não encontrado.');
+  if (message === 'brand-not-found') throw new HttpsError('not-found', 'Cliente não encontrado.');
+  if (message === 'invalid-access-data') throw new HttpsError('invalid-argument', 'Confira o e-mail e use uma senha com ao menos 6 caracteres.');
+  logger.error('client_access_failed', { code, message });
+  throw new HttpsError('internal', 'Não foi possível atualizar o acesso do cliente.');
 };
 
 export const internalLogin = onCall({ region: 'southamerica-east1', cors: true }, async request => {
@@ -50,7 +101,7 @@ export const internalLogin = onCall({ region: 'southamerica-east1', cors: true }
   const email = typeof request.data?.email === 'string' ? request.data.email : '';
   const password = typeof request.data?.password === 'string' ? request.data.password : '';
   try {
-    const result = await authenticateInternal(email, password, dependencies);
+    const result = await authenticateInternal(email, password, await createInternalDependencies());
     logger.info('internal_login_succeeded', { uid: result.profile.uid, role: result.role });
     return result;
   } catch {
@@ -61,6 +112,8 @@ export const internalLogin = onCall({ region: 'southamerica-east1', cors: true }
 
 export const setInternalCredential = onCall({ region: 'southamerica-east1', cors: true }, async request => {
   if (process.env.INTERNAL_AUTH_ENABLED !== 'true') throw new HttpsError('failed-precondition', 'Fluxo legado desativado.');
+  const { db, FieldValue } = await getAdminServices();
+  const credentials = db.collection('internal_credentials');
   if (!request.auth || !(await db.collection('admins').doc(request.auth.uid).get()).exists) throw new HttpsError('permission-denied', 'Acesso negado.');
   const uid = typeof request.data?.uid === 'string' ? request.data.uid.trim() : '';
   const emailNormalized = normalizeEmail(typeof request.data?.email === 'string' ? request.data.email : '');
@@ -77,56 +130,34 @@ export const setInternalCredential = onCall({ region: 'southamerica-east1', cors
   return { uid, email: emailNormalized, role, active: request.data?.active !== false };
 });
 
-const requireAdmin = async (uid?: string) => {
-  try { await assertAdminAccess(uid, async id => (await db.collection('admins').doc(id).get()).exists); }
-  catch { throw new HttpsError('permission-denied', 'Acesso negado.'); }
-};
-
-const accessDependencies: ClientAccessDependencies = {
-  async brandExists(brandId) { return (await db.collection('brands').doc(brandId).get()).exists; },
-  async createUser(data) { await getAuth(app).createUser(data); },
-  async updatePassword(uid, password) { await getAuth(app).updateUser(uid, { password }); },
-  async updateDisabled(uid, disabled) { await getAuth(app).updateUser(uid, { disabled }); },
-  async revokeRefreshTokens(uid) { await getAuth(app).revokeRefreshTokens(uid); },
-  async updateBrand(brandId, data) { await db.collection('brands').doc(brandId).update({ ...data, updatedAt: FieldValue.serverTimestamp() }); },
-};
-
-const accessError = (error: unknown): never => {
-  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
-  const message = error instanceof Error ? error.message : '';
-  if (code.includes('email-already-exists') || code.includes('uid-already-exists')) throw new HttpsError('already-exists', 'Este cliente já possui um acesso no Firebase Auth.');
-  if (code.includes('user-not-found')) throw new HttpsError('not-found', 'Acesso do cliente não encontrado.');
-  if (message === 'brand-not-found') throw new HttpsError('not-found', 'Cliente não encontrado.');
-  if (message === 'invalid-access-data') throw new HttpsError('invalid-argument', 'Confira o e-mail e use uma senha com ao menos 6 caracteres.');
-  logger.error('client_access_failed', { code, message });
-  throw new HttpsError('internal', 'Não foi possível atualizar o acesso do cliente.');
-};
-
 export const createClientAccess = onCall({ region: 'southamerica-east1', cors: true }, async request => {
   await requireAdmin(request.auth?.uid);
-  try { return await createAccess({ brandId: String(request.data?.brandId ?? ''), email: String(request.data?.email ?? ''), password: String(request.data?.password ?? ''), active: request.data?.active !== false }, accessDependencies); }
+  try { return await createAccess({ brandId: String(request.data?.brandId ?? ''), email: String(request.data?.email ?? ''), password: String(request.data?.password ?? ''), active: request.data?.active !== false }, await createAccessDependencies()); }
   catch (error) { return accessError(error); }
 });
 
 export const createClientWithAccess = onCall({ region: 'southamerica-east1', cors: true }, async request => {
   await requireAdmin(request.auth?.uid);
+  const { auth, db, FieldValue } = await getAdminServices();
   const brand = request.data?.brand && typeof request.data.brand === 'object' ? request.data.brand as Record<string, unknown> : {};
   const name = typeof brand.name === 'string' ? brand.name.trim() : '';
+  const allowedStatuses = ['active', 'warning', 'delinquent', 'suspended', 'banning'];
+  const status = allowedStatuses.includes(String(brand.status)) ? String(brand.status) : 'active';
   if (!name || name.length > 100) throw new HttpsError('invalid-argument', 'Informe o nome do cliente.');
-  const safeBrand = { name, responsible: String(brand.responsible ?? ''), phone: String(brand.phone ?? ''), cnpj: String(brand.cnpj ?? ''), website: String(brand.website ?? ''), socialLinks: {}, internalNotes: String(brand.internalNotes ?? ''), createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+  const safeBrand = { name, status, responsible: String(brand.responsible ?? ''), phone: String(brand.phone ?? ''), cnpj: String(brand.cnpj ?? ''), website: String(brand.website ?? ''), socialLinks: {}, internalNotes: String(brand.internalNotes ?? ''), createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
   const uid = db.collection('brands').doc().id;
-  try { return await createWithAccess(uid, { brandId: uid, email: String(request.data?.email ?? ''), password: String(request.data?.password ?? ''), active: request.data?.active !== false, brand: safeBrand }, { createUser: async data => { await getAuth(app).createUser(data); }, createBrand: async (id, data) => { await db.collection('brands').doc(id).create(data); }, deleteUser: async id => { await getAuth(app).deleteUser(id); } }); }
+  try { return await createWithAccess(uid, { brandId: uid, email: String(request.data?.email ?? ''), password: String(request.data?.password ?? ''), active: request.data?.active !== false, brand: safeBrand }, { createUser: async data => { await auth.createUser(data); }, createBrand: async (id, data) => { await db.collection('brands').doc(id).create(data); }, deleteUser: async id => { await auth.deleteUser(id); } }); }
   catch (error) { return accessError(error); }
 });
 
 export const resetClientPassword = onCall({ region: 'southamerica-east1', cors: true }, async request => {
   await requireAdmin(request.auth?.uid);
-  try { await resetPassword(String(request.data?.brandId ?? ''), String(request.data?.password ?? ''), accessDependencies); return { updated: true }; }
+  try { await resetPassword(String(request.data?.brandId ?? ''), String(request.data?.password ?? ''), await createAccessDependencies()); return { updated: true }; }
   catch (error) { return accessError(error); }
 });
 
 export const setClientAccessStatus = onCall({ region: 'southamerica-east1', cors: true }, async request => {
   await requireAdmin(request.auth?.uid);
-  try { await setAccessStatus(String(request.data?.brandId ?? ''), request.data?.active === true, accessDependencies); return { active: request.data?.active === true }; }
+  try { await setAccessStatus(String(request.data?.brandId ?? ''), request.data?.active === true, await createAccessDependencies()); return { active: request.data?.active === true }; }
   catch (error) { return accessError(error); }
 });

@@ -30,7 +30,7 @@ service cloud.firestore {
     // --- Validations ---
     function isValidBrand(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() < 100
-        && data.status in ['active', 'pending', 'suspended'];
+        && data.status in ['active', 'warning', 'delinquent', 'suspended', 'banning'];
     }
 
     function isValidPost(data) {
@@ -145,7 +145,7 @@ service cloud.firestore {
     match /brands/{brandId} {
       allow read: if isAdmin() || isOwner(brandId);
       allow write: if isAdmin();
-      allow update: if isOwner(brandId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references']);
+      allow update: if isOwner(brandId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl']);
     }
 
     // Posts

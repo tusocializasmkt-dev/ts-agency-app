@@ -19,8 +19,8 @@ describe('AuthContext', () => {
     let resolve!: (value: unknown) => void; firebase.getDoc.mockReturnValueOnce(new Promise(done => { resolve = done; })); const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const view = render(<AuthProvider><Probe /></AuthProvider>); let pending!: Promise<void>; await act(async () => { pending = firebase.authCallback!({ uid: 'u2' }); }); view.unmount(); await act(async () => { resolve({ exists: () => true }); await pending; }); expect(consoleError).not.toHaveBeenCalled(); consoleError.mockRestore();
   });
-  it('encerra a sessão de cliente suspenso e informa o motivo', async () => {
-    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ status: 'suspended' }) });
+  it('encerra a sessão somente quando o acesso está desativado', async () => {
+    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ status: 'delinquent', accessEnabled: false }) });
     render(<AuthProvider><Probe /></AuthProvider>);
     await act(() => firebase.authCallback!({ uid: 'cliente-a' }));
     expect(firebase.signOut).toHaveBeenCalled();

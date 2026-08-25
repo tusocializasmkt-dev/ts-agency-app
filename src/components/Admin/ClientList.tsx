@@ -3,6 +3,7 @@ import { Brand } from '../../types';
 import { motion } from 'motion/react';
 import { ArrowRight, Globe, Phone } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { BRAND_STATUS_LABELS, getBrandStatusBadgeClass, getBrandStatusRingClass, normalizeBrandStatus } from '../../brands/brand-status';
 
 interface ClientListProps {
   brands: Brand[];
@@ -21,8 +22,8 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
           className="group bg-white border border-zinc-200 p-8 rounded-3xl flex items-center justify-between cursor-pointer hover:border-black transition-all shadow-sm"
         >
           <div className="flex items-center gap-8">
-            <div className="w-16 h-16 bg-black text-white rounded-2xl flex items-center justify-center font-bold text-2xl group-hover:scale-105 transition-transform shadow-lg shadow-black/10">
-              {brand.name.charAt(0)}
+            <div className={cn("w-16 h-16 overflow-hidden bg-black text-white rounded-2xl flex items-center justify-center font-bold text-2xl group-hover:scale-105 transition-transform shadow-lg shadow-black/10 ring-4 ring-offset-4", getBrandStatusRingClass(brand.status))}>
+              {brand.logoUrl ? <img src={brand.logoUrl} alt={`Logotipo de ${brand.name}`} className="h-full w-full object-cover" loading="lazy" /> : brand.name.charAt(0).toUpperCase()}
             </div>
             <div>
               <h3 className="text-2xl font-bold tracking-tight">{brand.name}</h3>
@@ -44,11 +45,9 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
           <div className="flex items-center gap-8">
              <div className={cn(
                 "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border",
-                brand.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' :
-                brand.status === 'suspended' ? 'bg-red-50 text-red-600 border-red-100' :
-                'bg-orange-50 text-orange-600 border-orange-100'
+                getBrandStatusBadgeClass(brand.status)
               )}>
-                {brand.status}
+                {BRAND_STATUS_LABELS[normalizeBrandStatus(brand.status)]}
               </div>
               <div className="p-3 rounded-full bg-zinc-50 text-zinc-300 group-hover:bg-black group-hover:text-white transition-all">
                 <ArrowRight className="w-6 h-6" />

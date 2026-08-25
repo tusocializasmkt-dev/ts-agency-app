@@ -31,11 +31,11 @@ export async function createBrand(data: Omit<Brand, 'id' | 'createdAt' | 'update
   }
 }
 
-export type ClientEditableBrandFields = Partial<Pick<Brand, 'name' | 'tradeName' | 'segment' | 'description' | 'city' | 'state' | 'responsible' | 'email' | 'phone' | 'whatsapp' | 'website' | 'socialLinks' | 'brandColors' | 'identityNotes' | 'targetAudience' | 'mainOffers' | 'communicationTone' | 'contentNotes' | 'avoidedTerms' | 'references'>>;
+export type ClientEditableBrandFields = Partial<Pick<Brand, 'name' | 'tradeName' | 'segment' | 'description' | 'city' | 'state' | 'responsible' | 'email' | 'phone' | 'whatsapp' | 'website' | 'socialLinks' | 'brandColors' | 'identityNotes' | 'targetAudience' | 'mainOffers' | 'communicationTone' | 'contentNotes' | 'avoidedTerms' | 'references' | 'logoUrl'>>;
 
 export async function updateClientEditableFields(id: string, data: ClientEditableBrandFields): Promise<void> {
   try {
-    const allowed = ['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references'] as const;
+    const allowed = ['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl'] as const;
     const safeData = Object.fromEntries(allowed.filter(key => data[key] !== undefined).map(key => [key, data[key]]));
     await updateDoc(doc(db, 'brands', id), safeData);
   } catch (error) {

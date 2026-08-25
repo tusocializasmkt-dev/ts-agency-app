@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Brand } from '../../types';
-import { Save, Link2, Globe, Phone, User, Building, Trash2, Key } from 'lucide-react';
+import { Save, Link2, Building, Key, Upload } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useBrands, useFeedback } from '../../hooks';
 import { callCreateClientAccess, callResetClientPassword, callSetClientAccessStatus } from '../../data/functions';
 import PasswordDialog from '../auth/PasswordDialog';
 import AccessConfirmationDialog, { type TemporaryAccess } from './AccessConfirmationDialog';
 import { APP_URL } from '../../config/app';
+import { BRAND_STATUSES, BRAND_STATUS_LABELS, getBrandStatusBadgeClass, getBrandStatusRingClass } from '../../brands/brand-status';
+import { createStorageReference, getFileDownloadUrl, uploadFile } from '../../data/repositories';
 
 interface BrandDetailProps {
   brandId: string;
@@ -19,17 +21,47 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
   const [passwordMode, setPasswordMode] = useState<'create' | 'reset' | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
   const [temporaryAccess, setTemporaryAccess] = useState<TemporaryAccess | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const logoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (brand) setData(brand);
   }, [brand]);
 
+  useEffect(() => () => { if (logoPreview) URL.revokeObjectURL(logoPreview); }, [logoPreview]);
+
   const handleSave = async () => {
     try {
       await update(brandId, data);
-      if (brand.accessEnabled !== undefined && brand.status !== data.status) await callSetClientAccessStatus(brandId, data.status !== 'suspended');
       feedback.success('Cliente atualizado!');
     } catch (e) { feedback.error('Erro ao atualizar'); }
+  };
+
+  const handleLogoChange = async (file?: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+      feedback.error('Selecione uma imagem de até 5 MB.');
+      return;
+    }
+    const preview = URL.createObjectURL(file);
+    setLogoPreview(preview);
+    setUploadingLogo(true);
+    try {
+      const extension = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'image';
+      const reference = createStorageReference(`brands/${brandId}/media/logos/logo-${Date.now()}.${extension}`);
+      const uploaded = await uploadFile(reference, file).completion;
+      const logoUrl = await getFileDownloadUrl(uploaded);
+      await update(brandId, { logoUrl });
+      setData(current => ({ ...current, logoUrl }));
+      setLogoPreview(null);
+      feedback.success('Logotipo atualizado!');
+    } catch {
+      feedback.error('Não foi possível enviar o logotipo. O anterior foi mantido.');
+    } finally {
+      setUploadingLogo(false);
+      if (logoInput.current) logoInput.current.value = '';
+    }
   };
 
   if (loading) return <div className="p-20 text-center text-zinc-400 font-mono">Processando dados do cliente...</div>;
@@ -39,12 +71,15 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
     <div className="space-y-8 max-w-6xl">
       <div className="flex justify-between items-center bg-white p-8 rounded-3xl border border-zinc-200 shadow-sm">
         <div className="flex items-center gap-6">
-          <div className="w-16 h-16 bg-black text-white rounded-2xl flex items-center justify-center font-bold text-3xl shadow-xl shadow-black/10">
-            {data.name?.charAt(0)}
-          </div>
+          <button type="button" onClick={() => logoInput.current?.click()} disabled={uploadingLogo} aria-label="Alterar logotipo" className={cn("relative w-16 h-16 bg-black text-white rounded-2xl flex shrink-0 items-center justify-center overflow-hidden font-bold text-3xl shadow-xl shadow-black/10 ring-4 ring-offset-4 transition-opacity", getBrandStatusRingClass(data.status), uploadingLogo && "opacity-60")}>
+            {(logoPreview || data.logoUrl) ? <img src={logoPreview || data.logoUrl} alt={`Logotipo de ${data.name || 'cliente'}`} className="h-full w-full object-cover" /> : data.name?.charAt(0).toUpperCase()}
+            {uploadingLogo && <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] uppercase tracking-wider">Enviando</span>}
+          </button>
+          <input ref={logoInput} type="file" accept="image/*" className="hidden" onChange={event => void handleLogoChange(event.target.files?.[0])} />
           <div>
             <h2 className="text-3xl font-black uppercase tracking-tighter">{data.name}</h2>
             <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em]">{brandId}</p>
+            <button type="button" disabled={uploadingLogo} onClick={() => logoInput.current?.click()} className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black"><Upload className="mr-1 inline h-3 w-3" />{uploadingLogo ? 'Enviando...' : 'Alterar logotipo'}</button>
           </div>
         </div>
         <button 
@@ -88,18 +123,18 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
            <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 italic">Status do Cliente</h3>
               <div className="flex flex-col gap-4">
-                 {['active', 'suspended', 'pending'].map(s => (
+                 {BRAND_STATUSES.map(s => (
                    <button 
                     key={s}
                     onClick={() => setData({...data, status: s as Brand['status']})}
                     className={cn(
                       "w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all shadow-sm",
-                      data.status === s 
-                        ? (s === 'active' ? "bg-green-600 text-white border-green-600" : s === 'suspended' ? "bg-red-600 text-white border-red-600" : "bg-orange-600 text-white border-orange-600")
+                      data.status === s
+                        ? getBrandStatusBadgeClass(s)
                         : "bg-white text-zinc-400 border-zinc-200 hover:border-black hover:text-black"
                     )}
                    >
-                     {s}
+                     {BRAND_STATUS_LABELS[s]}
                    </button>
                  ))}
               </div>
@@ -122,12 +157,12 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
                    </div>
                 </div>
                 <button onClick={() => setPasswordMode(data.accessEnabled === undefined ? 'create' : 'reset')} className="w-full bg-white text-black py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg">{data.accessEnabled === undefined ? 'Criar acesso' : 'Redefinir senha'}</button>
-                {data.accessEnabled !== undefined && <button onClick={async () => { const active = !data.accessEnabled; await callSetClientAccessStatus(brandId, active); setData(current => ({ ...current, accessEnabled: active, status: active ? 'active' : 'suspended' })); feedback.success(active ? 'Acesso reativado.' : 'Acesso suspenso.'); }} className="w-full border border-zinc-700 py-4 text-xs font-bold uppercase tracking-widest">{data.accessEnabled ? 'Suspender acesso' : 'Reativar acesso'}</button>}
+                {data.accessEnabled !== undefined && <button onClick={async () => { const active = !data.accessEnabled; await callSetClientAccessStatus(brandId, active); setData(current => ({ ...current, accessEnabled: active })); feedback.success(active ? 'Acesso reativado.' : 'Acesso suspenso.'); }} className="w-full border border-zinc-700 py-4 text-xs font-bold uppercase tracking-widest">{data.accessEnabled ? 'Suspender acesso' : 'Reativar acesso'}</button>}
               </div>
            </div>
         </div>
       </div>
-      {passwordMode && <PasswordDialog title={passwordMode === 'create' ? 'Criar acesso do cliente' : 'Redefinir senha do cliente'} processing={savingPassword} onClose={() => setPasswordMode(null)} onConfirm={async password => { if (!data.email) throw new Error('email-required'); setSavingPassword(true); try { if (passwordMode === 'create') { await callCreateClientAccess({ brandId, email: data.email, password, active: data.status !== 'suspended' }); setData(current => ({ ...current, accessEnabled: data.status !== 'suspended' })); } else { await callResetClientPassword(brandId, password); } feedback.success(passwordMode === 'create' ? 'Acesso do cliente criado.' : 'Senha do cliente redefinida.'); setTemporaryAccess({ name: data.name || 'Cliente', email: data.email, password, portalUrl: APP_URL }); setPasswordMode(null); } finally { setSavingPassword(false); } }} />}
+      {passwordMode && <PasswordDialog title={passwordMode === 'create' ? 'Criar acesso do cliente' : 'Redefinir senha do cliente'} processing={savingPassword} onClose={() => setPasswordMode(null)} onConfirm={async password => { if (!data.email) throw new Error('email-required'); setSavingPassword(true); try { if (passwordMode === 'create') { await callCreateClientAccess({ brandId, email: data.email, password, active: true }); setData(current => ({ ...current, accessEnabled: true })); } else { await callResetClientPassword(brandId, password); } feedback.success(passwordMode === 'create' ? 'Acesso do cliente criado.' : 'Senha do cliente redefinida.'); setTemporaryAccess({ name: data.name || 'Cliente', email: data.email, password, portalUrl: APP_URL }); setPasswordMode(null); } finally { setSavingPassword(false); } }} />}
       {temporaryAccess && <AccessConfirmationDialog access={temporaryAccess} onClose={() => setTemporaryAccess(null)} />}
     </div>
   );
