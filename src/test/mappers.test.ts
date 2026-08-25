@@ -15,7 +15,9 @@ describe('mappers', () => {
     expect(toPostWriteData({ id: 'p1', type: 'feed', feedback: undefined })).toEqual({ type: 'feed' });
   });
   it('Invoice normaliza boleto e promessa', () => {
-    expect(mapInvoice(snapshot('i1', { pdfUrl: 'boleto', paymentPromise: { date: '2026-01-02', description: 'pago' } }))).toMatchObject({ id: 'i1', boletoUrl: 'boleto', paymentPromise: { promiseDate: '2026-01-02' } });
+    const invoice = mapInvoice(snapshot('i1', { pdfUrl: 'boleto', dueDate: '2026-01-10', paymentPromise: { date: '2026-01-02', description: 'pago' } }));
+    expect(invoice).toMatchObject({ id: 'i1', boletoUrl: 'boleto', paymentPromise: { promiseDate: '2026-01-02' } });
+    expect(invoice.recurrenceGroupId).toBeUndefined();
   });
   it('mapeia métricas, lixeira e configuração', () => {
     expect(mapOrganicMetrics(snapshot('o1', { brandId: 'b1' }))).toMatchObject({ id: 'o1', brandId: 'b1' });

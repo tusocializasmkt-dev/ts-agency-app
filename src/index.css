@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@utility input {
+  @apply mt-2 min-h-11 w-full rounded-xl border p-3;
+}
+
 html,
 body,
 #root {

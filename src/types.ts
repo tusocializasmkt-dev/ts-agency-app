@@ -160,6 +160,12 @@ export interface Invoice {
   pixLink?: string;
   promisedPaymentDate?: ISODateString;
   paymentPromise?: PaymentPromise;
+  recurrenceGroupId?: string;
+  recurrenceIndex?: number;
+  recurrenceTotal?: number;
+  recurrenceStart?: YearMonth;
+  recurrenceEnd?: YearMonth;
+  recurrenceDay?: number;
   createdAt?: FirestoreTimestamp;
   updatedAt?: FirestoreTimestamp;
 }

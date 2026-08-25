@@ -19,7 +19,7 @@ vi.mock('../data/firebase', () => ({
   removeUndefined: (record: Record<string, unknown>) => Object.fromEntries(Object.entries(record).filter(([, value]) => value !== undefined)),
 }));
 
-import { cancelInvoice, createInvoice, markInvoicePaid, replaceInvoiceBoleto, resumeInvoice, subscribeToInvoiceHistory, suspendInvoice, updateInvoice } from '../data/repositories/invoices.repository';
+import { cancelInvoice, createInvoice, createInvoiceSeries, markInvoicePaid, replaceInvoiceBoleto, resumeInvoice, subscribeToInvoiceHistory, suspendInvoice, updateInvoice } from '../data/repositories/invoices.repository';
 
 const history = { invoiceId: 'i', brandId: 'b', action: 'edited' as const, actorUid: 'admin', actorRole: 'admin' as const };
 
@@ -53,5 +53,11 @@ describe('invoices repository', () => {
     await replaceInvoiceBoleto('i', 'media-pdf', { ...history, action: 'boleto_replaced' });
     expect(unsubscribe).toEqual(expect.any(Function));
     expect(firebase.batch.update).toHaveBeenCalledWith('doc:invoices/i', expect.objectContaining({ boletoMediaId: 'media-pdf' }));
+  });
+  it('usa um único batch e não confirma uma série parcial quando o commit falha', async () => {
+    firebase.batch.commit.mockRejectedValueOnce(new Error('falha-atômica'));
+    const entry = { invoice: { brandId: 'b', amount: 100, currency: 'BRL' as const, dueDate: '2026-09-10', status: 'pending' as const, createdBy: 'admin' }, history: { ...history, invoiceId: '', action: 'created' as const } };
+    await expect(createInvoiceSeries([entry, { ...entry, invoice: { ...entry.invoice, dueDate: '2026-10-10' } }])).rejects.toThrow('falha-atômica');
+    expect(firebase.writeBatch).toHaveBeenCalledOnce(); expect(firebase.batch.set).toHaveBeenCalledTimes(4); expect(firebase.batch.commit).toHaveBeenCalledOnce();
   });
 });

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Invoice, InvoiceStatus, UserRole } from '../types';
 import * as service from '../services';
+
 interface Options { brandId?: string | null; status?: InvoiceStatus; actorUid?: string; actorRole?: UserRole; }
 export function useInvoices(brandOrOptions?: string | null | Options, legacyStatus?: InvoiceStatus) {
   const options: Options = typeof brandOrOptions === 'object' && brandOrOptions !== null ? brandOrOptions : { brandId: brandOrOptions as string | null | undefined, status: legacyStatus };
@@ -8,5 +9,18 @@ export function useInvoices(brandOrOptions?: string | null | Options, legacyStat
   const [invoices, setInvoices] = useState<Invoice[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
   useEffect(() => { setLoading(true); setError(null); const onData = (data: Invoice[]) => { setInvoices(data); setLoading(false); }; const onError = () => { setError('Não foi possível carregar as faturas.'); setLoading(false); }; return brandId ? service.watchBrandInvoices(brandId, onData, onError, status) : service.watchInvoices(onData, onError, status); }, [brandId, status]);
   const run = useCallback(async (command: () => Promise<unknown>, message: string) => { setError(null); try { return await command(); } catch (cause) { setError(message); throw cause; } }, []); const actor = { actorUid, actorRole };
-  return { invoices, loading, error, resetError: () => setError(null), create: (data: Parameters<typeof service.createInvoice>[0]) => run(() => service.createInvoice(data, actor), 'Não foi possível criar a fatura.'), edit: (id: string, data: Partial<Invoice>) => run(() => service.editInvoice(id, data, actor), 'Não foi possível editar a fatura.'), markPaid: (id: string) => run(() => service.markPaid(id, actor), 'Não foi possível marcar como paga.'), suspend: (id: string) => run(() => service.suspendInvoice(id, actor), 'Não foi possível suspender.'), resume: (id: string) => run(() => service.resumeInvoice(id, actor), 'Não foi possível retomar.'), cancel: (id: string) => run(() => service.cancelInvoice(id, actor), 'Não foi possível cancelar.'), replaceBoleto: (id: string, mediaId: string) => run(() => service.replaceBoleto(id, mediaId, actor), 'Não foi possível associar o boleto.'), requestPromise: (id: string, date: string, reason: string) => run(() => service.requestPaymentPromise(id, date, reason, actor), 'Não foi possível solicitar a promessa.'), approvePromise: (id: string) => run(() => service.approvePaymentPromise(id, actor), 'Não foi possível aprovar a promessa.'), rejectPromise: (id: string, note: string) => run(() => service.rejectPaymentPromise(id, note, actor), 'Não foi possível reprovar a promessa.') };
+  return {
+    invoices, loading, error, resetError: () => setError(null),
+    create: (data: Parameters<typeof service.createInvoice>[0]) => run(() => service.createInvoice(data, actor), 'Não foi possível criar a fatura.'),
+    createRecurring: (data: Parameters<typeof service.createRecurringInvoices>[0]) => run(() => service.createRecurringInvoices(data, actor), 'Não foi possível criar a série de cobranças.'),
+    edit: (id: string, data: Partial<Invoice>) => run(() => service.editInvoice(id, data, actor), 'Não foi possível editar a fatura.'),
+    markPaid: (id: string) => run(() => service.markPaid(id, actor), 'Não foi possível marcar como paga.'),
+    suspend: (id: string) => run(() => service.suspendInvoice(id, actor), 'Não foi possível suspender.'),
+    resume: (id: string) => run(() => service.resumeInvoice(id, actor), 'Não foi possível retomar.'),
+    cancel: (id: string) => run(() => service.cancelInvoice(id, actor), 'Não foi possível cancelar.'),
+    replaceBoleto: (id: string, mediaId: string) => run(() => service.replaceBoleto(id, mediaId, actor), 'Não foi possível associar o boleto.'),
+    requestPromise: (id: string, date: string, reason: string) => run(() => service.requestPaymentPromise(id, date, reason, actor), 'Não foi possível solicitar a promessa.'),
+    approvePromise: (id: string) => run(() => service.approvePaymentPromise(id, actor), 'Não foi possível aprovar a promessa.'),
+    rejectPromise: (id: string, note: string) => run(() => service.rejectPaymentPromise(id, note, actor), 'Não foi possível reprovar a promessa.'),
+  };
 }
