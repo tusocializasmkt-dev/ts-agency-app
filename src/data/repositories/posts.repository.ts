@@ -3,6 +3,7 @@ import { db } from '../../lib/firebase';
 import type { Post, PostStatus } from '../../types';
 import { normalizeFirestoreError, subscribeToQuery, type DataListener, type ErrorListener } from '../firebase';
 import { mapPost, toPostWriteData } from '../mappers';
+import { getLocalMonthIsoRange } from '../../posts';
 
 const posts = collection(db, 'posts');
 
@@ -20,11 +21,9 @@ export const subscribeToPostsByBrand = (brandId: string, onData: DataListener<Po
 };
 
 export const subscribeToPostsByMonth = (brandId: string | null, month: string, onData: DataListener<Post[]>, onError: ErrorListener) => {
-  const start = `${month}-01T00:00:00.000Z`;
-  const endDate = new Date(`${month}-01T00:00:00.000Z`);
-  endDate.setUTCMonth(endDate.getUTCMonth() + 1);
-  let source: Query<DocumentData> = query(posts, where('scheduledDate', '>=', start), where('scheduledDate', '<', endDate.toISOString()), orderBy('scheduledDate', 'asc'));
-  if (brandId) source = query(posts, where('brandId', '==', brandId), where('scheduledDate', '>=', start), where('scheduledDate', '<', endDate.toISOString()), orderBy('scheduledDate', 'asc'));
+  const { start, end } = getLocalMonthIsoRange(month);
+  let source: Query<DocumentData> = query(posts, where('scheduledDate', '>=', start), where('scheduledDate', '<', end), orderBy('scheduledDate', 'asc'));
+  if (brandId) source = query(posts, where('brandId', '==', brandId), where('scheduledDate', '>=', start), where('scheduledDate', '<', end), orderBy('scheduledDate', 'asc'));
   return subscribeToQuery(source, mapPost, onData, onError, 'post', 'subscribe-by-month');
 };
 

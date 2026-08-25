@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_CONCURRENT_UPLOADS, MediaError, type MediaCategory, type MediaUploadItem, type MediaUploadProgress, validateMediaBatch } from '../media';
 import { prepareMediaUpload, startPreparedMediaUpload, type MediaUploadOperation } from '../services/media.service';
 
@@ -40,7 +40,10 @@ export function useMediaUpload(starter: UploadStarter = defaultStarter) {
   const enqueue = useCallback((brandId: string, files: readonly File[], category: MediaCategory = 'other') => {
     const validation = validateMediaBatch(files);
     if (!validation.valid) { setError(validation.errors[0].message); throw validation.errors[0]; }
-    const queued = files.map(file => { const id = crypto.randomUUID(); return { id, mediaId: id, brandId, file, category, state: 'queued' as const, progress: { bytesTransferred: 0, totalBytes: file.size, percentage: 0 }, attempts: 0 }; });
+    const fingerprint = (file: File) => `${file.name}:${file.size}:${file.lastModified}:${file.type}`;
+    const existing = new Set(itemsRef.current.filter(item => item.state !== 'cancelled').map(item => fingerprint(item.file)));
+    const uniqueFiles = files.filter((file, index) => !existing.has(fingerprint(file)) && files.findIndex(candidate => fingerprint(candidate) === fingerprint(file)) === index);
+    const queued = uniqueFiles.map(file => { const id = crypto.randomUUID(); return { id, mediaId: id, brandId, file, category, state: 'queued' as const, progress: { bytesTransferred: 0, totalBytes: file.size, percentage: 0 }, attempts: 0 }; });
     replaceItems(current => [...current, ...queued]); setError(null); queueMicrotask(pump); return queued.map(item => item.id);
   }, [pump, replaceItems]);
 
@@ -58,7 +61,14 @@ export function useMediaUpload(starter: UploadStarter = defaultStarter) {
     operations.current.clear();
     replaceItems(() => []);
   }, [replaceItems]);
+  const remove = useCallback((id: string) => {
+    operations.current.get(id)?.cancel();
+    operations.current.delete(id);
+    replaceItems(current => current.filter(item => item.id !== id));
+  }, [replaceItems]);
+
+  useEffect(() => () => { operations.current.forEach(operation => operation.cancel()); }, []);
 
   const totalProgress = useMemo(() => { const total = items.reduce((sum, item) => sum + item.progress.totalBytes, 0); return total ? Math.round(items.reduce((sum, item) => sum + item.progress.bytesTransferred, 0) / total * 100) : 0; }, [items]);
-  return { items, isUploading: items.some(item => item.state === 'uploading'), enqueue, start, cancel, retry, clearCompleted, clearAll, totalProgress, error };
+  return { items, isUploading: items.some(item => item.state === 'uploading'), enqueue, start, cancel, retry, remove, clearCompleted, clearAll, totalProgress, error };
 }
