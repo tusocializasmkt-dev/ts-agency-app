@@ -21,6 +21,11 @@ service firebase.storage {
       allow read, write: if isAdmin() || isOwner(brandId);
     }
 
+    match /agency/logo/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

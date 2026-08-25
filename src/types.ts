@@ -25,7 +25,7 @@ export interface AdminProfile {
 
 export interface AgencyConfig {
   name: string;
-  logoUrl: string;
+  logoUrl?: string;
   phone: string;
   email: string;
   socialLinks: Record<string, string>;
