@@ -94,7 +94,7 @@ const FeedView: React.FC<FeedViewProps> = ({ selectedBrandId, isAdmin, onBrandCh
     </AnimatePresence></div>
 
     {!visiblePosts.length && <div className="border border-dashed border-zinc-200 p-14 text-center"><p className="text-zinc-500">Nenhum conteúdo cadastrado.</p>{isAdmin && <button disabled={!brands.length} onClick={() => { setEditingPost(null); setIsModalOpen(true); }} className="mt-4 min-h-11 bg-black px-5 font-bold text-white disabled:opacity-40"><Plus className="mr-2 inline h-4 w-4" />Novo post</button>}</div>}
-    {isAdmin && isModalOpen && <PostModal post={editingPost} brandId={editingPost?.brandId ?? selectedBrandId ?? ''} brands={brands} onClose={() => setIsModalOpen(false)} onDelete={editingPost ? async () => { await remove(editingPost.id); feedback.success('Post movido para a lixeira.'); setIsModalOpen(false); } : undefined} onSave={async (data) => {
+    {isAdmin && isModalOpen && <PostModal aiEnabled={isAdmin} post={editingPost} brandId={editingPost?.brandId ?? selectedBrandId ?? ''} brands={brands} onClose={() => setIsModalOpen(false)} onDelete={editingPost ? async () => { await remove(editingPost.id); feedback.success('Post movido para a lixeira.'); setIsModalOpen(false); } : undefined} onSave={async (data) => {
       const targetBrandId = data.brandId; if (!targetBrandId) throw new Error('Selecione um cliente.');
       if (editingPost) { await update(editingPost.id, { ...data, brandId: targetBrandId }); feedback.success('Post atualizado!'); }
       else { await create(targetBrandId, data); feedback.success('Post criado!'); }

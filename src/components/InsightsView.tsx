@@ -5,6 +5,7 @@ import { Sparkles, TrendingUp, Target, Info, Loader2, Zap, Users } from 'lucide-
 import { cn } from '../lib/utils';
 import { useBrands, useFeedback, useMetrics } from '../hooks';
 import MetricsDialog from './MetricsDialog';
+import { useMarketingAI } from '../hooks/useMarketingAI';
 
 interface InsightsViewProps {
   selectedBrandId: string | null;
@@ -18,14 +19,13 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
   const { brands } = useBrands(undefined, isAdmin);
   const feedback = useFeedback();
   const [tab, setTab] = useState<'organic' | 'paid'>('organic');
-  const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [generatingAi, setGeneratingAi] = useState(false);
+  const ai = useMarketingAI();
   const [editingMetrics, setEditingMetrics] = useState(false);
   const [savingMetrics, setSavingMetrics] = useState(false);
 
-  const generateAIAnalysis = () => {
+  const generateAIAnalysis = async () => {
     if (!selectedBrandId) return;
-    feedback.info('Recurso de IA temporariamente indisponível durante a configuração segura.');
+    await ai.run({ action: 'analyze_insights', brandId: selectedBrandId });
   };
 
   const CustomTooltip = ({ active, payload, label }: {
@@ -148,20 +148,21 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
                       <Sparkles className="w-5 h-5" /> Análise IA
                     </h3>
                   </div>
-                  {aiInsight ? (
+                  {ai.result ? (
                     <div className="text-sm font-medium leading-relaxed italic border-l-2 border-white/20 pl-4 py-2">
-                      {aiInsight}
+                      {ai.result}
                     </div>
                   ) : (
                     <p className="text-xs font-medium opacity-60">Gere uma análise automática do desempenho deste cliente com base nos dados mais recentes.</p>
                   )}
                   <button 
                     onClick={generateAIAnalysis}
-                    disabled={generatingAi}
+                    disabled={ai.loading}
                     className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-zinc-200 disabled:opacity-50 transition-all shadow-xl"
                   >
-                    {generatingAi ? <Loader2 className="animate-spin w-4 h-4" /> : 'Sugerir Melhorias'}
+                    {ai.loading ? <Loader2 className="animate-spin w-4 h-4" /> : ai.result ? 'Gerar nova análise' : 'Sugerir Melhorias'}
                   </button>
+                  {ai.error && <p role="alert" className="text-xs font-bold text-red-300">{ai.error}</p>}
                 </div>
               </div>
             )}

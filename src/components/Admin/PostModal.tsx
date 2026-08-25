@@ -7,10 +7,11 @@ import { useMediaUpload } from '../../hooks/useMediaUpload';
 import { formatPostDateTimeForInput, localPostDateTimeToISOString } from '../../posts';
 import { MediaPicker } from '../media';
 import UploadQueue from '../media/UploadQueue';
+import PostAiAssistant from '../ai/PostAiAssistant';
 
-interface PostModalProps { post?: Post | null; brandId?: string; brands?: Brand[]; initialDate?: string; onClose: () => void; onDelete?: () => void | Promise<void>; onSave: (data: Partial<Post>) => void | Promise<void>; }
+interface PostModalProps { post?: Post | null; brandId?: string; brands?: Brand[]; initialDate?: string; aiEnabled?: boolean; onClose: () => void; onDelete?: () => void | Promise<void>; onSave: (data: Partial<Post>) => void | Promise<void>; }
 
-export default function PostModal({ post, brandId = '', brands = [], initialDate, onClose, onDelete, onSave }: PostModalProps) {
+export default function PostModal({ post, brandId = '', brands = [], initialDate, aiEnabled = false, onClose, onDelete, onSave }: PostModalProps) {
   const titleId = useId(); const uploadInput = useRef<HTMLInputElement>(null); const upload = useMediaUpload();
   const [targetBrandId, setTargetBrandId] = useState(post?.brandId ?? brandId);
   const [formData, setFormData] = useState<Partial<Post>>(post ?? { type: 'feed', socialNetwork: 'instagram', caption: '', scheduledDate: initialDate ?? new Date().toISOString(), status: 'pending' });
@@ -40,7 +41,9 @@ export default function PostModal({ post, brandId = '', brands = [], initialDate
     if (uploadPending) return setError('Aguarde o término dos uploads.');
     if (uploadFailed) return setError('Remova ou tente novamente os uploads com falha.');
     setError(null); setSaving(true);
-    try { await onSave({ ...formData, brandId: targetBrandId, mediaIds: selectedIds, coverMediaId: selectedIds.length ? coverMediaId ?? selectedIds[0] : undefined }); }
+    const completedIds = upload.items.filter(item => item.state === 'completed').map(item => item.mediaId ?? item.id);
+    const finalSelectedIds = [...new Set([...selectedIds, ...completedIds])];
+    try { await onSave({ ...formData, brandId: targetBrandId, mediaIds: finalSelectedIds, coverMediaId: finalSelectedIds.length ? coverMediaId ?? finalSelectedIds[0] : undefined }); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o post.'); }
     finally { setSaving(false); }
   };
@@ -55,6 +58,7 @@ export default function PostModal({ post, brandId = '', brands = [], initialDate
         <div className="grid gap-5 sm:grid-cols-2"><Select label="Plataforma" value={formData.socialNetwork ?? 'instagram'} onChange={value => setFormData({ ...formData, socialNetwork: value })} options={[['instagram','Instagram'],['facebook','Facebook'],['tiktok','TikTok'],['linkedin','LinkedIn'],['youtube','YouTube']]} /><Select label="Tipo de post" value={formData.type ?? 'feed'} onChange={value => setFormData({ ...formData, type: value as Post['type'] })} options={[['feed','Feed'],['reels','Reels'],['stories','Story'],['carousel','Carrossel'],['other','Outro']]} /></div>
         <Select label="Objetivo" value={formData.objective ?? ''} onChange={value => setFormData({ ...formData, objective: value as Post['objective'] || undefined })} options={[['','Não definido'],['venda','Venda'],['engajamento','Engajamento'],['autoridade','Autoridade'],['tráfego','Tráfego']]} />
         <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500">Legenda / descritivo<textarea value={formData.caption ?? ''} onChange={event => setFormData({ ...formData, caption: event.target.value })} rows={5} className="mt-2 w-full resize-none rounded-2xl border p-4 text-sm text-black" /></label>
+        {aiEnabled && <PostAiAssistant brandId={targetBrandId} content={formData.caption ?? ''} platform={formData.socialNetwork} objective={formData.objective} onUse={text => setFormData(current => ({ ...current, caption: text }))} />}
         <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500">Data e hora<div className="relative mt-2"><Calendar className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" /><input type="datetime-local" value={formatPostDateTimeForInput(formData.scheduledDate)} onChange={event => { try { setFormData({ ...formData, scheduledDate: localPostDateTimeToISOString(event.target.value) }); setError(null); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Data inválida.'); } }} className="min-h-12 w-full rounded-xl border py-3 pl-11 pr-4 text-sm" /></div></label>
         <Select label="Status inicial" value={formData.status ?? 'pending'} onChange={value => setFormData({ ...formData, status: value as Post['status'] })} options={[['pending','Pendente'],['scheduled','Agendado']]} />
 
