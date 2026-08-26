@@ -1,6 +1,7 @@
 import type { FieldValue, Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'client';
+export type TeamRole = 'manager' | 'social_media';
+export type UserRole = 'admin' | TeamRole | 'client';
 export type FirestoreTimestamp = Timestamp | FieldValue;
 export type ISODateString = string;
 export type YearMonth = string;
@@ -19,6 +20,19 @@ export interface AdminProfile {
   id: string;
   email: string;
   role: 'admin';
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}
+
+export interface TeamMember {
+  id: string;
+  uid: string;
+  displayName: string;
+  email: string;
+  role: TeamRole;
+  active: boolean;
+  brandIds: string[];
+  createdBy?: string;
   createdAt?: FirestoreTimestamp;
   updatedAt?: FirestoreTimestamp;
 }

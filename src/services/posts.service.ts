@@ -1,6 +1,6 @@
 import { MAX_MEDIA_PER_POST, type MediaAsset } from '../media';
 import type { Post, PostDecisionAction, PostStatus, UserRole } from '../types';
-import { commitPostDecision, createPost as persistPost, getPostById, movePostToTrash, subscribeToPostHistory, subscribeToPosts, subscribeToPostsByBrand, subscribeToPostsByMonth, updatePost } from '../data/repositories';
+import { commitPostDecision, createPost as persistPost, getPostById, movePostToTrash, subscribeToPostHistory, subscribeToPosts, subscribeToPostsByBrand, subscribeToPostsByBrands, subscribeToPostsByBrandsAndMonth, subscribeToPostsByMonth, updatePost } from '../data/repositories';
 import { loadMediaByIds } from './media.service';
 import { POST_FEEDBACK_MAX_LENGTH, POST_FEEDBACK_MIN_LENGTH } from '../posts';
 import { notifyPostApproved, notifyPostChangesRequested, notifyPostCreated, notifyPostRejected, notifyPostResubmitted } from './notifications.service';
@@ -8,6 +8,8 @@ import { notifyPostApproved, notifyPostChangesRequested, notifyPostCreated, noti
 export const watchPosts = subscribeToPosts;
 export const watchBrandPosts = subscribeToPostsByBrand;
 export const watchCalendarPosts = subscribeToPostsByMonth;
+export const watchScopedPosts = subscribeToPostsByBrands;
+export const watchScopedCalendarPosts = subscribeToPostsByBrandsAndMonth;
 export const watchPostDecisionHistory = subscribeToPostHistory;
 export const trashPost = movePostToTrash;
 export interface DecisionActor { actorUid: string; actorRole: UserRole; }
@@ -42,7 +44,7 @@ export async function editPost(id: string, data: Partial<Post>, actor?: Decision
   if (data.mediaIds) { if (!data.brandId) throw new PostMediaError('wrong-brand'); const selection = await validatePostMedia(data.brandId, data); changes = { ...data, mediaIds: selection.mediaIds, coverMediaId: selection.coverMediaId }; }
   const current = await getPostById(id);
   if (current && ['rejected', 'changes_requested'].includes(current.status)) {
-    if (!actor?.actorUid || actor.actorRole !== 'admin') throw new PostDecisionError('invalid-actor');
+    if (!actor?.actorUid || !['admin', 'manager', 'social_media'].includes(actor.actorRole)) throw new PostDecisionError('invalid-actor');
     await commitPostDecision(id, 'pending', '', { postId: id, brandId: current.brandId, action: 'resubmitted', previousStatus: current.status, newStatus: 'pending', actorUid: actor.actorUid, actorRole: actor.actorRole }, changes);
     try { await notifyPostResubmitted(current.brandId, id); } catch { /* A notificação não invalida a ressubmissão. */ }
     return;
@@ -56,7 +58,7 @@ export class PostDecisionError extends Error {
 
 function normalizeFeedback(feedback: string, required: boolean): string { const value = feedback.trim(); if (required && value.length < POST_FEEDBACK_MIN_LENGTH) throw new PostDecisionError('feedback-required'); if (value.length > POST_FEEDBACK_MAX_LENGTH) throw new PostDecisionError('feedback-too-long'); return value; }
 async function decidePost(id: string, action: Exclude<PostDecisionAction, 'resubmitted'>, actor: DecisionActor, feedback = '') {
-  if (!actor.actorUid || !['admin', 'client'].includes(actor.actorRole)) throw new PostDecisionError('invalid-actor');
+  if (!actor.actorUid || !['admin', 'manager', 'social_media', 'client'].includes(actor.actorRole)) throw new PostDecisionError('invalid-actor');
   const post = await getPostById(id); if (!post) throw new PostDecisionError('post-not-found');
   if (post.status !== 'pending') throw new PostDecisionError('invalid-transition');
   const required = action !== 'approved'; const normalized = normalizeFeedback(feedback, required);

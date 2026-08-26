@@ -15,6 +15,21 @@ service cloud.firestore {
       // Security-wise, we need a reliable way. Let's use a simple isAdmin field or specific collection.
       return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+
+    function teamProfile() {
+      return get(/databases/$(database)/documents/team_members/$(request.auth.uid)).data;
+    }
+
+    function isTeamMember() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/team_members/$(request.auth.uid))
+        && teamProfile().active == true
+        && teamProfile().role in ['manager', 'social_media'];
+    }
+
+    function hasBrandAccess(brandId) {
+      return isTeamMember() && brandId in teamProfile().brandIds;
+    }
     
     function isOwner(brandId) {
       return isSignedIn() && request.auth.uid == brandId;
@@ -128,6 +143,11 @@ service cloud.firestore {
       allow write: if false; // Only manually via console or initialization script
     }
 
+    match /team_members/{userId} {
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if false;
+    }
+
     match /notifications/{notificationId} {
       allow read: if isAdmin() || (isSignedIn() && existing().recipientUid == request.auth.uid);
       allow create: if isAdmin() && isValidNotification(incoming());
@@ -143,30 +163,32 @@ service cloud.firestore {
 
     // Brands
     match /brands/{brandId} {
-      allow read: if isAdmin() || isOwner(brandId);
+      allow read: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
       allow write: if isAdmin();
-      allow update: if isOwner(brandId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl']);
+      allow update: if (isOwner(brandId) || hasBrandAccess(brandId))
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references']);
     }
 
     // Posts
     match /posts/{postId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow create: if isAdmin() && isValidPost(incoming());
-      allow update: if (isAdmin() && isValidPost(incoming()))
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if (isAdmin() || hasBrandAccess(incoming().brandId)) && isValidPost(incoming());
+      allow update: if ((isAdmin() || hasBrandAccess(existing().brandId)) && incoming().brandId == existing().brandId && isValidPost(incoming()))
         || (isSignedIn() && existing().brandId == request.auth.uid && isValidClientDecision());
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || hasBrandAccess(existing().brandId);
 
       match /history/{historyId} {
-        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.brandId == request.auth.uid);
+        allow read: if isAdmin() || hasBrandAccess(get(/databases/$(database)/documents/posts/$(postId)).data.brandId) || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.brandId == request.auth.uid);
         allow create: if isSignedIn()
           && incoming().postId == postId
           && incoming().brandId == get(/databases/$(database)/documents/posts/$(postId)).data.brandId
           && incoming().actorUid == request.auth.uid
-          && incoming().actorRole in ['admin', 'client']
+          && incoming().actorRole in ['admin', 'manager', 'social_media', 'client']
           && incoming().action in ['approved', 'rejected', 'changes_requested', 'resubmitted']
           && incoming().createdAt == request.time
           && isCoherentHistory(postId)
           && ((isAdmin() && incoming().actorRole == 'admin')
+            || (hasBrandAccess(incoming().brandId) && incoming().actorRole in ['manager', 'social_media'])
             || (incoming().brandId == request.auth.uid && incoming().actorRole == 'client' && incoming().action != 'resubmitted'));
         allow update, delete: if false;
       }
@@ -223,22 +245,24 @@ service cloud.firestore {
 
     // Metrics
     match /metrics_organic/{metricId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow write: if isAdmin();
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if isAdmin() || hasBrandAccess(incoming().brandId);
+      allow update, delete: if isAdmin() || hasBrandAccess(existing().brandId);
     }
     match /metrics_paid/{metricId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow write: if isAdmin();
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if isAdmin() || hasBrandAccess(incoming().brandId);
+      allow update, delete: if isAdmin() || hasBrandAccess(existing().brandId);
     }
 
     // Media metadata. Ownership follows the existing media.brandId contract.
     match /media/{mediaId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow create: if isValidMedia(incoming()) && (isAdmin() || isOwner(incoming().brandId));
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow create: if isValidMedia(incoming()) && (isAdmin() || isOwner(incoming().brandId) || hasBrandAccess(incoming().brandId));
       allow update: if isValidMedia(incoming())
         && incoming().brandId == existing().brandId
-        && (isAdmin() || existing().brandId == request.auth.uid);
-      allow delete: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+        && (isAdmin() || hasBrandAccess(existing().brandId) || existing().brandId == request.auth.uid);
+      allow delete: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
     }
 
     // Trash

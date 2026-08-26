@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { cn } from '../lib/utils';
-import { LayoutDashboard, Users, Image as ImageIcon, Images, Calendar as CalendarIcon, DollarSign, TrendingUp, Settings, LogOut, Trash2, Star, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, UserRoundCog, Image as ImageIcon, Images, Calendar as CalendarIcon, DollarSign, TrendingUp, Settings, LogOut, Trash2, Star, Bell } from 'lucide-react';
 import { ROUTES } from '../app/router/routes';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAgencyConfig } from '../hooks/useAgencyConfig';
@@ -19,7 +19,10 @@ const adminItems = [
   { to: ROUTES.admin.media, label: 'Mídias', icon: Images },
   { to: ROUTES.admin.trash, label: 'Lixeira', icon: Trash2 },
   { to: ROUTES.admin.settings, label: 'Configurações', icon: Settings },
+  { to: ROUTES.admin.team, label: 'Equipe', icon: UserRoundCog },
 ];
+
+const teamItems = adminItems.filter(item => ['Dashboard', 'Notificações', 'Feed', 'Calendário', 'Insights', 'Clientes', 'Mídias'].includes(item.label));
 
 const clientItems = [
   { to: ROUTES.client.root, label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -36,7 +39,7 @@ export default function Sidebar() {
   const { role } = useAuth();
   const { unreadCount } = useNotifications();
   const { config } = useAgencyConfig();
-  const menuItems = role === 'admin' ? adminItems : clientItems;
+  const menuItems = role === 'admin' ? adminItems : role === 'manager' || role === 'social_media' ? teamItems : clientItems;
   return (
     <aside className="w-64 border-r border-zinc-200 flex flex-col bg-white overflow-hidden h-screen sticky top-0">
       <div className="flex min-h-24 items-center p-6">{config.logoUrl ? <div className="w-full"><img src={config.logoUrl} alt={config.name ? `Logotipo ${config.name}` : 'Logotipo da agência'} className="max-h-14 w-full object-contain object-left" />{config.name && <span className="mt-2 block truncate text-xs font-bold uppercase tracking-wider text-zinc-500">{config.name}</span>}</div> : <h1 className="text-xl font-bold tracking-tighter uppercase">TS Agency</h1>}</div>

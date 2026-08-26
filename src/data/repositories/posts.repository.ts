@@ -20,11 +20,24 @@ export const subscribeToPostsByBrand = (brandId: string, onData: DataListener<Po
   return subscribeToQuery(source, mapPost, onData, onError, 'post', 'subscribe-by-brand');
 };
 
+export const subscribeToPostsByBrands = (brandIds: string[], onData: DataListener<Post[]>, onError: ErrorListener, status?: PostStatus) => {
+  if (!brandIds.length) { onData([]); return () => {}; }
+  let source: Query<DocumentData> = query(posts, where('brandId', 'in', brandIds.slice(0, 30)), orderBy('scheduledDate', 'desc'));
+  if (status) source = query(posts, where('brandId', 'in', brandIds.slice(0, 30)), where('status', '==', status), orderBy('scheduledDate', 'desc'));
+  return subscribeToQuery(source, mapPost, onData, onError, 'post', 'subscribe-by-brands');
+};
+
 export const subscribeToPostsByMonth = (brandId: string | null, month: string, onData: DataListener<Post[]>, onError: ErrorListener) => {
   const { start, end } = getLocalMonthIsoRange(month);
   let source: Query<DocumentData> = query(posts, where('scheduledDate', '>=', start), where('scheduledDate', '<', end), orderBy('scheduledDate', 'asc'));
   if (brandId) source = query(posts, where('brandId', '==', brandId), where('scheduledDate', '>=', start), where('scheduledDate', '<', end), orderBy('scheduledDate', 'asc'));
   return subscribeToQuery(source, mapPost, onData, onError, 'post', 'subscribe-by-month');
+};
+
+export const subscribeToPostsByBrandsAndMonth = (brandIds: string[], month: string, onData: DataListener<Post[]>, onError: ErrorListener) => {
+  if (!brandIds.length) { onData([]); return () => {}; }
+  const { start, end } = getLocalMonthIsoRange(month);
+  return subscribeToQuery(query(posts, where('brandId', 'in', brandIds.slice(0, 30)), where('scheduledDate', '>=', start), where('scheduledDate', '<', end), orderBy('scheduledDate', 'asc')), mapPost, onData, onError, 'post', 'subscribe-scoped-month');
 };
 
 export async function createPost(data: Partial<Post>): Promise<string> {

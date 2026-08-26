@@ -22,7 +22,9 @@ export async function listMediaPage(request: MediaPageRequest = {}): Promise<Med
   const pageSize = Math.max(1, Math.min(request.pageSize ?? MEDIA_LIBRARY_PAGE_SIZE, MEDIA_LIBRARY_PAGE_SIZE));
   try {
     const constraints: QueryConstraint[] = [];
+    if (request.brandId && request.brandIds && !request.brandIds.includes(request.brandId)) return { items: [], hasMore: false };
     if (request.brandId) constraints.push(where('brandId', '==', request.brandId));
+    else if (request.brandIds) { if (!request.brandIds.length) return { items: [], hasMore: false }; constraints.push(where('brandId', 'in', request.brandIds.slice(0, 30))); }
     if (request.type) constraints.push(where('mediaType', '==', request.type));
     if (request.status) constraints.push(where('status', '==', request.status));
     constraints.push(orderBy('createdAt', request.order === 'oldest' ? 'asc' : 'desc'));

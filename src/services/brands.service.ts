@@ -1,7 +1,8 @@
 import type { Brand } from '../types';
-import { createBrand, getBrandById, subscribeToBrands, updateBrand, updateClientEditableFields, type ClientEditableBrandFields } from '../data/repositories';
+import { createBrand, getBrandById, subscribeToBrands, subscribeToBrandsByIds, updateBrand, updateClientEditableFields, type ClientEditableBrandFields } from '../data/repositories';
 
 export const watchBrands = subscribeToBrands;
+export const watchBrandsByIds = subscribeToBrandsByIds;
 export const loadBrand = getBrandById;
 export const saveBrand = (id: string, data: Partial<Brand>) => updateBrand(id, data);
 export const addBrand = createBrand;

@@ -9,6 +9,7 @@ import AccessConfirmationDialog, { type TemporaryAccess } from './AccessConfirma
 import { APP_URL } from '../../config/app';
 import { BRAND_STATUSES, BRAND_STATUS_LABELS, getBrandStatusBadgeClass, getBrandStatusRingClass } from '../../brands/brand-status';
 import { createStorageReference, getFileDownloadUrl, uploadFile } from '../../data/repositories';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface BrandDetailProps {
   brandId: string;
@@ -16,7 +17,8 @@ interface BrandDetailProps {
 
 const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
   const [data, setData] = useState<Partial<Brand>>({});
-  const { brand, loading, error, update } = useBrands(brandId);
+  const { brand, loading, error, update, updateClientProfile } = useBrands(brandId);
+  const { isAdmin } = useAuth();
   const feedback = useFeedback();
   const [passwordMode, setPasswordMode] = useState<'create' | 'reset' | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -33,7 +35,8 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
 
   const handleSave = async () => {
     try {
-      await update(brandId, data);
+      if (isAdmin) await update(brandId, data);
+      else await updateClientProfile(brandId, data);
       feedback.success('Cliente atualizado!');
     } catch (e) { feedback.error('Erro ao atualizar'); }
   };
@@ -71,7 +74,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
     <div className="space-y-8 max-w-6xl">
       <div className="flex justify-between items-center bg-white p-8 rounded-3xl border border-zinc-200 shadow-sm">
         <div className="flex items-center gap-6">
-          <button type="button" onClick={() => logoInput.current?.click()} disabled={uploadingLogo} aria-label="Alterar logotipo" className={cn("relative w-16 h-16 bg-black text-white rounded-2xl flex shrink-0 items-center justify-center overflow-hidden font-bold text-3xl shadow-xl shadow-black/10 ring-4 ring-offset-4 transition-opacity", getBrandStatusRingClass(data.status), uploadingLogo && "opacity-60")}>
+          <button type="button" onClick={() => isAdmin && logoInput.current?.click()} disabled={!isAdmin || uploadingLogo} aria-label={isAdmin ? 'Alterar logotipo' : 'Logotipo do cliente'} className={cn("relative w-16 h-16 bg-black text-white rounded-2xl flex shrink-0 items-center justify-center overflow-hidden font-bold text-3xl shadow-xl shadow-black/10 ring-4 ring-offset-4 transition-opacity", getBrandStatusRingClass(data.status), uploadingLogo && "opacity-60")}>
             {(logoPreview || data.logoUrl) ? <img src={logoPreview || data.logoUrl} alt={`Logotipo de ${data.name || 'cliente'}`} className="h-full w-full object-cover" /> : data.name?.charAt(0).toUpperCase()}
             {uploadingLogo && <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] uppercase tracking-wider">Enviando</span>}
           </button>
@@ -79,7 +82,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
           <div>
             <h2 className="text-3xl font-black uppercase tracking-tighter">{data.name}</h2>
             <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em]">{brandId}</p>
-            <button type="button" disabled={uploadingLogo} onClick={() => logoInput.current?.click()} className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black"><Upload className="mr-1 inline h-3 w-3" />{uploadingLogo ? 'Enviando...' : 'Alterar logotipo'}</button>
+            {isAdmin && <button type="button" disabled={uploadingLogo} onClick={() => logoInput.current?.click()} className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black"><Upload className="mr-1 inline h-3 w-3" />{uploadingLogo ? 'Enviando...' : 'Alterar logotipo'}</button>}
           </div>
         </div>
         <button 
@@ -98,7 +101,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
              </h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <Input label="Nome da Marca" value={data.name || ''} onChange={v => setData({...data, name: v})} />
-                <Input label="CNPJ" value={data.cnpj || ''} onChange={v => setData({...data, cnpj: v})} placeholder="00.000.000/0001-00" />
+                {isAdmin && <Input label="CNPJ" value={data.cnpj || ''} onChange={v => setData({...data, cnpj: v})} placeholder="00.000.000/0001-00" />}
                 <Input label="Responsável" value={data.responsible || ''} onChange={v => setData({...data, responsible: v})} />
                 <Input label="E-mail de Contato" value={data.email || ''} onChange={v => setData({...data, email: v})} />
                 <Input label="Telefone / WhatsApp" value={data.phone || ''} onChange={v => setData({...data, phone: v})} />
@@ -106,9 +109,9 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
              </div>
           </div>
           <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm"><h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Perfil colaborativo</h3><div className="grid grid-cols-1 gap-8 md:grid-cols-2"><Input label="Nome fantasia" value={data.tradeName || ''} onChange={v => setData({...data, tradeName: v})} /><Input label="Segmento" value={data.segment || ''} onChange={v => setData({...data, segment: v})} /><Input label="Cidade" value={data.city || ''} onChange={v => setData({...data, city: v})} /><Input label="Estado" value={data.state || ''} onChange={v => setData({...data, state: v})} /><Input label="WhatsApp" value={data.whatsapp || ''} onChange={v => setData({...data, whatsapp: v})} /><Input label="Público-alvo" value={data.targetAudience || ''} onChange={v => setData({...data, targetAudience: v})} /><Input label="Produtos e serviços" value={data.mainOffers || ''} onChange={v => setData({...data, mainOffers: v})} /><Input label="Tom de comunicação" value={data.communicationTone || ''} onChange={v => setData({...data, communicationTone: v})} /><Input label="Descrição" value={data.description || ''} onChange={v => setData({...data, description: v})} /><Input label="Cores da marca" value={data.brandColors || ''} onChange={v => setData({...data, brandColors: v})} /><Input label="Identidade" value={data.identityNotes || ''} onChange={v => setData({...data, identityNotes: v})} /><Input label="Observações de conteúdo" value={data.contentNotes || ''} onChange={v => setData({...data, contentNotes: v})} /><Input label="Termos a evitar" value={data.avoidedTerms || ''} onChange={v => setData({...data, avoidedTerms: v})} /><Input label="Referências" value={data.references || ''} onChange={v => setData({...data, references: v})} />{['instagram','facebook','tiktok','linkedin','youtube'].map(network => <Input key={network} label={network} value={data.socialLinks?.[network] || ''} onChange={v => setData({...data, socialLinks: {...data.socialLinks, [network]: v}})} />)}</div></div>
-          <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-10 space-y-4"><h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Somente administração</h3><Input label="Observações internas" value={data.internalNotes || ''} onChange={v => setData({...data, internalNotes: v})} /></div>
+          {isAdmin && <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-10 space-y-4"><h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">Somente administração</h3><Input label="Observações internas" value={data.internalNotes || ''} onChange={v => setData({...data, internalNotes: v})} /></div>}
 
-          <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
+          {isAdmin && <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 flex items-center gap-2 italic">
                <Link2 className="w-4 h-4 text-zinc-300" /> Links Estratégicos
              </h3>
@@ -116,7 +119,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
                 <Input label="Pasta Google Drive" value={data.driveUrl || ''} onChange={v => setData({...data, driveUrl: v})} placeholder="https://drive.google.com/..." />
                 <Input label="Link do Contrato" value={data.contractUrl || ''} onChange={v => setData({...data, contractUrl: v})} placeholder="https://..." />
              </div>
-          </div>
+          </div>}
         </div>
 
         <div className="space-y-8">
@@ -124,14 +127,15 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 italic">Status do Cliente</h3>
               <div className="flex flex-col gap-4">
                  {BRAND_STATUSES.map(s => (
-                   <button 
+                   <button
                     key={s}
-                    onClick={() => setData({...data, status: s as Brand['status']})}
+                    disabled={!isAdmin}
+                    onClick={() => isAdmin && setData({...data, status: s as Brand['status']})}
                     className={cn(
                       "w-full py-4 rounded-2xl text-xs font-black uppercase tracking-widest border transition-all shadow-sm",
                       data.status === s
                         ? getBrandStatusBadgeClass(s)
-                        : "bg-white text-zinc-400 border-zinc-200 hover:border-black hover:text-black"
+                        : cn("bg-white text-zinc-400 border-zinc-200", isAdmin && "hover:border-black hover:text-black")
                     )}
                    >
                      {BRAND_STATUS_LABELS[s]}
@@ -140,7 +144,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
               </div>
            </div>
 
-           <div className="bg-black text-white border border-black rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
+           {isAdmin && <div className="bg-black text-white border border-black rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-6 flex items-center gap-2">
                 <Key className="w-4 h-4" /> Acesso do Cliente
               </h3>
@@ -159,7 +163,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
                 <button onClick={() => setPasswordMode(data.accessEnabled === undefined ? 'create' : 'reset')} className="w-full bg-white text-black py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg">{data.accessEnabled === undefined ? 'Criar acesso' : 'Redefinir senha'}</button>
                 {data.accessEnabled !== undefined && <button onClick={async () => { const active = !data.accessEnabled; await callSetClientAccessStatus(brandId, active); setData(current => ({ ...current, accessEnabled: active })); feedback.success(active ? 'Acesso reativado.' : 'Acesso suspenso.'); }} className="w-full border border-zinc-700 py-4 text-xs font-bold uppercase tracking-widest">{data.accessEnabled ? 'Suspender acesso' : 'Reativar acesso'}</button>}
               </div>
-           </div>
+           </div>}
         </div>
       </div>
       {passwordMode && <PasswordDialog title={passwordMode === 'create' ? 'Criar acesso do cliente' : 'Redefinir senha do cliente'} processing={savingPassword} onClose={() => setPasswordMode(null)} onConfirm={async password => { if (!data.email) throw new Error('email-required'); setSavingPassword(true); try { if (passwordMode === 'create') { await callCreateClientAccess({ brandId, email: data.email, password, active: true }); setData(current => ({ ...current, accessEnabled: true })); } else { await callResetClientPassword(brandId, password); } feedback.success(passwordMode === 'create' ? 'Acesso do cliente criado.' : 'Senha do cliente redefinida.'); setTemporaryAccess({ name: data.name || 'Cliente', email: data.email, password, portalUrl: APP_URL }); setPasswordMode(null); } finally { setSavingPassword(false); } }} />}

@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Brand } from '../types';
-import { addBrand, loadBrand, saveBrand, saveClientProfile, watchBrands } from '../services';
+import { addBrand, loadBrand, saveBrand, saveClientProfile, watchBrands, watchBrandsByIds } from '../services';
+import { useAuth } from '../contexts/AuthContext';
 import type { ClientEditableBrandFields } from '../data/repositories';
 
 export function useBrands(brandId?: string, enabled = true) {
+  const { isTeamMember, brandIds } = useAuth();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -12,11 +14,12 @@ export function useBrands(brandId?: string, enabled = true) {
   useEffect(() => {
     if (!enabled) { setLoading(false); return; }
     setLoading(true); setError(null);
-    if (!brandId) return watchBrands(data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); });
+    if (!brandId) return (isTeamMember ? watchBrandsByIds(brandIds, data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); }) : watchBrands(data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); }));
+    if (isTeamMember && !brandIds.includes(brandId)) { setBrand(null); setError('Você não possui acesso a este cliente.'); setLoading(false); return; }
     let active = true;
     loadBrand(brandId).then(data => { if (active) { setBrand(data); setLoading(false); } }).catch(() => { if (active) { setError('Não foi possível carregar o cliente.'); setLoading(false); } });
     return () => { active = false; };
-  }, [brandId, enabled]);
+  }, [brandId, enabled, isTeamMember, brandIds.join('|')]);
 
   const update = useCallback(async (id: string, data: Partial<Brand>) => {
     setError(null);

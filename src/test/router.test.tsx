@@ -11,16 +11,25 @@ vi.mock('../contexts/AuthContext', () => ({ useAuth: vi.fn() }));
 vi.mock('../lib/firebase', () => ({ auth: {} }));
 vi.mock('firebase/auth', () => ({ signOut: vi.fn() }));
 const auth = vi.mocked(useAuth);
-const state = (overrides = {}) => ({ user: null, role: null, loading: false, authError: null, isAdmin: false, brandId: null, ...overrides } as ReturnType<typeof useAuth>);
+const state = (overrides = {}) => ({ user: null, role: null, loading: false, authError: null, isAdmin: false, brandId: null, brandIds: [], isTeamMember: false, ...overrides } as ReturnType<typeof useAuth>);
 const Location = () => { const location = useLocation(); return <span>{location.pathname}:{String(location.state?.from ?? '')}</span>; };
 
 describe('router guards', () => {
   beforeEach(() => auth.mockReturnValue(state()));
 
-  it.each([[null, '/login'], ['admin', '/admin'], ['client', '/cliente']] as const)('RootRedirect envia %s para %s', (role, destination) => {
+  it.each([[null, '/login'], ['admin', '/admin'], ['manager', '/admin'], ['social_media', '/admin'], ['client', '/cliente']] as const)('RootRedirect envia %s para %s', (role, destination) => {
     auth.mockReturnValue(state(role ? { user: {}, role } : {}));
     render(<MemoryRouter initialEntries={['/']}><Routes><Route path="/" element={<RootRedirect />} /><Route path="*" element={<Location />} /></Routes></MemoryRouter>);
     expect(screen.getByText(`${destination}:`)).toBeInTheDocument();
+  });
+
+  it('RoleGuard permite equipe na área operacional e bloqueia rota exclusiva de admin', () => {
+    auth.mockReturnValue(state({ user: {}, role: 'manager', isTeamMember: true, brandIds: ['a'] }));
+    const operational = render(<MemoryRouter initialEntries={['/área']}><Routes><Route element={<RoleGuard roles={['admin', 'manager', 'social_media']} />}><Route path="/área" element={<span>operacional</span>} /></Route></Routes></MemoryRouter>);
+    expect(screen.getByText('operacional')).toBeInTheDocument();
+    operational.unmount();
+    render(<MemoryRouter initialEntries={['/financeiro']}><Routes><Route element={<RoleGuard role="admin" />}><Route path="/financeiro" element={<span>financeiro</span>} /></Route><Route path="*" element={<Location />} /></Routes></MemoryRouter>);
+    expect(screen.getByText('/admin:')).toBeInTheDocument();
   });
 
   it('RootRedirect mantém loading e bloqueia perfil inválido', () => {

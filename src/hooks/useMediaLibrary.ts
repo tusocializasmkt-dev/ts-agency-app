@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MEDIA_LIBRARY_PAGE_SIZE, type MediaAsset, type MediaLibraryFilters } from '../media';
 import { filterMedia, listMediaPage, permanentlyDeleteMedia, restoreMedia, softDeleteMedia } from '../services/media.service';
+import { useAuth } from '../contexts/AuthContext';
 
 const initialFilters: MediaLibraryFilters = { status: 'ready', order: 'newest' };
 
 export function useMediaLibrary(initialBrandId?: string | null) {
+  const { isTeamMember, brandIds } = useAuth();
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,11 +21,11 @@ export function useMediaLibrary(initialBrandId?: string | null) {
   useEffect(() => {
     let active = true;
     setLoading(true); setError(null);
-    listMediaPage({ brandId: filters.brandId, type: filters.type, status: filters.status, order: filters.order, cursor, pageSize: MEDIA_LIBRARY_PAGE_SIZE })
+    listMediaPage({ brandId: filters.brandId, brandIds: isTeamMember ? brandIds : undefined, type: filters.type, status: filters.status, order: filters.order, cursor, pageSize: MEDIA_LIBRARY_PAGE_SIZE })
       .then(result => { if (active) { setMedia(result.items); setNextCursor(result.nextCursor); setHasNextPage(result.hasMore); setLoading(false); } })
       .catch(() => { if (active) { setError('Não foi possível carregar a biblioteca de mídia.'); setLoading(false); } });
     return () => { active = false; };
-  }, [cursor, filters.brandId, filters.order, filters.status, filters.type, refreshKey]);
+  }, [cursor, filters.brandId, filters.order, filters.status, filters.type, refreshKey, isTeamMember, brandIds.join('|')]);
 
   const setFilters = useCallback((next: MediaLibraryFilters | ((current: MediaLibraryFilters) => MediaLibraryFilters)) => {
     setFilterState(current => typeof next === 'function' ? next(current) : next);

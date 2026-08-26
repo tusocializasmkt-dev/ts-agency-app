@@ -12,7 +12,7 @@ describe('AuthContext', () => {
   it('restaura sessão persistida quando o observer recebe usuário existente', async () => { firebase.getDoc.mockResolvedValueOnce({ exists: () => true }); render(<AuthProvider><Probe /></AuthProvider>); await act(() => firebase.authCallback!({ uid: 'admin-a' })); expect(screen.getByText('admin:')).toBeInTheDocument(); });
   it('não inventa papel, limpa logout e cancela listener', async () => {
     const { unmount } = render(<AuthProvider><Probe /></AuthProvider>); expect(screen.getByText('loading')).toBeInTheDocument();
-    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false }); await act(() => firebase.authCallback!({ uid: 'u1' })); expect(screen.getByText(/none:Sua conta/)).toBeInTheDocument();
+    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false }); await act(() => firebase.authCallback!({ uid: 'u1' })); expect(screen.getByText(/none:Sua conta/)).toBeInTheDocument();
     await act(() => firebase.authCallback!(null)); expect(screen.getByText('none:')).toBeInTheDocument(); unmount(); expect(firebase.unsubscribe).toHaveBeenCalled();
   });
   it('ignora consulta de perfil que termina após unmount', async () => {
@@ -20,11 +20,20 @@ describe('AuthContext', () => {
     const view = render(<AuthProvider><Probe /></AuthProvider>); let pending!: Promise<void>; await act(async () => { pending = firebase.authCallback!({ uid: 'u2' }); }); view.unmount(); await act(async () => { resolve({ exists: () => true }); await pending; }); expect(consoleError).not.toHaveBeenCalled(); consoleError.mockRestore();
   });
   it('encerra a sessão somente quando o acesso está desativado', async () => {
-    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ status: 'delinquent', accessEnabled: false }) });
+    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ status: 'delinquent', accessEnabled: false }) });
     render(<AuthProvider><Probe /></AuthProvider>);
     await act(() => firebase.authCallback!({ uid: 'cliente-a' }));
     expect(firebase.signOut).toHaveBeenCalled();
     await act(() => firebase.authCallback!(null));
     expect(screen.getByText(/none:Este acesso está desativado/)).toBeInTheDocument();
+  });
+  it('carrega equipe ativa com clientes atribuídos e bloqueia membro inativo', async () => {
+    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ role: 'manager', active: true, brandIds: ['a', 'b'] }) });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await act(() => firebase.authCallback!({ uid: 'team-a' }));
+    expect(screen.getByText('manager:')).toBeInTheDocument();
+    firebase.getDoc.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true, data: () => ({ role: 'social_media', active: false, brandIds: ['a'] }) });
+    await act(() => firebase.authCallback!({ uid: 'team-b' }));
+    expect(firebase.signOut).toHaveBeenCalled();
   });
 });

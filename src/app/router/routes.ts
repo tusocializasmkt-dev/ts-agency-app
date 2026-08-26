@@ -16,6 +16,7 @@ export const ROUTES = {
     mediaUpload: '/admin/midias/upload',
     media: '/admin/midias',
     notifications: '/admin/notificacoes',
+    team: '/admin/equipe',
   },
   client: {
     root: '/cliente',

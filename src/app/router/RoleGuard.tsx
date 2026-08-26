@@ -4,10 +4,11 @@ import type { UserRole } from '../../types';
 import { ROUTES } from './routes';
 import { AuthLoading, ProfileError } from './ProtectedRoute';
 
-export default function RoleGuard({ role: allowedRole }: { role: UserRole }) {
+export default function RoleGuard({ role: allowedRole, roles }: { role?: UserRole; roles?: UserRole[] }) {
   const { role, loading, authError } = useAuth();
   if (loading) return <AuthLoading />;
   if (authError || !role) return <ProfileError message={authError} />;
-  if (role !== allowedRole) return <Navigate to={role === 'admin' ? ROUTES.admin.root : ROUTES.client.root} replace />;
+  const allowed = roles ?? (allowedRole ? [allowedRole] : []);
+  if (!allowed.includes(role)) return <Navigate to={role === 'client' ? ROUTES.client.root : ROUTES.admin.root} replace />;
   return <Outlet />;
 }

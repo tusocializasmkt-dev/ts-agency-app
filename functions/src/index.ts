@@ -5,6 +5,7 @@ import { defineSecret } from 'firebase-functions/params';
 import { authenticateInternal, hashPassword, normalizeEmail, type InternalCredential, type InternalRole } from './internal-auth.js';
 import { assertAdminAccess, createClientAccess as createAccess, createClientWithAccess as createWithAccess, resetClientPassword as resetPassword, setClientAccessStatus as setAccessStatus, type ClientAccessDependencies } from './user-access.js';
 import { createMemoryRateLimiter, executeMarketingAi, MarketingAiError, type MarketingAiRole } from './marketing-ai.js';
+import { createTeamMember as createTeam, resetTeamPassword as resetTeam, updateTeamMember as updateTeam, type TeamAccessDependencies, type TeamMemberInput } from './team-access.js';
 
 type AdminServices = Awaited<ReturnType<typeof initializeAdminServices>>;
 let adminServicesPromise: Promise<AdminServices> | undefined;
@@ -89,6 +90,29 @@ async function createAccessDependencies(): Promise<ClientAccessDependencies> {
   };
 }
 
+async function createTeamDependencies(): Promise<TeamAccessDependencies> {
+  const { auth, db, FieldValue } = await getAdminServices();
+  return {
+    async brandExists(id) { return (await db.collection('brands').doc(id).get()).exists; },
+    createUser: data => auth.createUser(data), updateUser: async (uid, data) => { await auth.updateUser(uid, data); },
+    deleteUser: async uid => { await auth.deleteUser(uid); }, revokeTokens: uid => auth.revokeRefreshTokens(uid),
+    setClaims: (uid, claims) => auth.setCustomUserClaims(uid, claims),
+    createMember: async (uid, data) => { await db.collection('team_members').doc(uid).create({ ...data, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }); },
+    updateMember: async (uid, data) => { await db.collection('team_members').doc(uid).update({ ...data, updatedAt: FieldValue.serverTimestamp() }); },
+  };
+}
+
+const teamError = (error: unknown): never => {
+  const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
+  const message = error instanceof Error ? error.message : '';
+  if (code.includes('email-already-exists')) throw new HttpsError('already-exists', 'Este e-mail já possui uma conta.');
+  if (code.includes('user-not-found')) throw new HttpsError('not-found', 'Membro não encontrado.');
+  if (message === 'brand-not-found') throw new HttpsError('failed-precondition', 'Um dos clientes selecionados não existe.');
+  if (message === 'invalid-team-data') throw new HttpsError('invalid-argument', 'Confira os dados do membro e a senha.');
+  logger.error('team_access_failed', { code, name: error instanceof Error ? error.name : 'unknown' });
+  throw new HttpsError('internal', 'Não foi possível atualizar o membro da equipe.');
+};
+
 const accessError = (error: unknown): never => {
   const code = typeof error === 'object' && error && 'code' in error ? String(error.code) : '';
   const message = error instanceof Error ? error.message : '';
@@ -164,6 +188,21 @@ export const setClientAccessStatus = onCall({ region: 'southamerica-east1', cors
   await requireAdmin(request.auth?.uid);
   try { await setAccessStatus(String(request.data?.brandId ?? ''), request.data?.active === true, await createAccessDependencies()); return { active: request.data?.active === true }; }
   catch (error) { return accessError(error); }
+});
+
+export const createTeamMember = onCall({ region: 'southamerica-east1', cors: true }, async request => {
+  await requireAdmin(request.auth?.uid);
+  try { return await createTeam(request.data as TeamMemberInput, request.auth!.uid, await createTeamDependencies()); } catch (error) { return teamError(error); }
+});
+
+export const updateTeamMember = onCall({ region: 'southamerica-east1', cors: true }, async request => {
+  await requireAdmin(request.auth?.uid);
+  try { return await updateTeam(request.data as TeamMemberInput, await createTeamDependencies()); } catch (error) { return teamError(error); }
+});
+
+export const resetTeamMemberPassword = onCall({ region: 'southamerica-east1', cors: true }, async request => {
+  await requireAdmin(request.auth?.uid);
+  try { await resetTeam(String(request.data?.uid ?? ''), String(request.data?.password ?? ''), await createTeamDependencies()); return { updated: true }; } catch (error) { return teamError(error); }
 });
 
 const safeText = (value: unknown, max = 1_000) => typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined;

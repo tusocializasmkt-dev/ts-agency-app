@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, documentId, getDoc, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { Brand } from '../../types';
 import { normalizeFirestoreError, subscribeToQuery, type DataListener, type ErrorListener } from '../firebase';
@@ -6,6 +6,7 @@ import { mapBrand, toBrandWriteData } from '../mappers';
 
 export const subscribeToBrands = (onData: DataListener<Brand[]>, onError: ErrorListener) =>
   subscribeToQuery(collection(db, 'brands'), mapBrand, onData, onError, 'brand', 'subscribe');
+export const subscribeToBrandsByIds = (ids: string[], onData: DataListener<Brand[]>, onError: ErrorListener) => ids.length ? subscribeToQuery(query(collection(db, 'brands'), where(documentId(), 'in', ids.slice(0, 30))), mapBrand, onData, onError, 'brand', 'subscribe-scoped') : (onData([]), () => {});
 
 export async function getBrandById(id: string): Promise<Brand> {
   try {

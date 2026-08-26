@@ -3,6 +3,7 @@ export * from './usePosts';
 export * from './useInvoices';
 export * from './useMetrics';
 export * from './useTrash';
+export * from './useTeamMembers';
 export * from './useAgencyConfig';
 export * from './useModal';
 export * from './useFeedback';

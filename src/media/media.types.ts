@@ -48,7 +48,7 @@ export interface MediaLibraryFilters {
   order?: MediaSortOrder;
 }
 
-export interface MediaPageRequest extends MediaLibraryFilters { pageSize?: number; cursor?: string; }
+export interface MediaPageRequest extends MediaLibraryFilters { pageSize?: number; cursor?: string; brandIds?: string[]; }
 export interface MediaPage { items: MediaAsset[]; nextCursor?: string; hasMore: boolean; }
 
 export interface PreparedMediaUpload {
