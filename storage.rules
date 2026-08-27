@@ -28,7 +28,12 @@ service firebase.storage {
     }
 
     match /brands/{brandId}/media/{mediaId}/{fileName} {
-      allow read, write: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
+      allow read: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
+      allow write: if isAdmin() || hasBrandAccess(brandId);
+      allow create, update: if isOwner(brandId)
+        && mediaId == 'logos'
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
 
     match /agency/logo/{fileName} {

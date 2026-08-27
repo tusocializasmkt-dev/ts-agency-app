@@ -166,7 +166,7 @@ service cloud.firestore {
       allow read: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
       allow write: if isAdmin();
       allow update: if (isOwner(brandId) || hasBrandAccess(brandId))
-        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references']);
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl']);
     }
 
     // Posts
@@ -258,11 +258,11 @@ service cloud.firestore {
     // Media metadata. Ownership follows the existing media.brandId contract.
     match /media/{mediaId} {
       allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow create: if isValidMedia(incoming()) && (isAdmin() || isOwner(incoming().brandId) || hasBrandAccess(incoming().brandId));
+      allow create: if isValidMedia(incoming()) && (isAdmin() || hasBrandAccess(incoming().brandId));
       allow update: if isValidMedia(incoming())
         && incoming().brandId == existing().brandId
-        && (isAdmin() || hasBrandAccess(existing().brandId) || existing().brandId == request.auth.uid);
-      allow delete: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+        && (isAdmin() || hasBrandAccess(existing().brandId));
+      allow delete: if isAdmin() || hasBrandAccess(existing().brandId);
     }
 
     // Trash

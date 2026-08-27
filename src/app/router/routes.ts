@@ -29,5 +29,6 @@ export const ROUTES = {
     profile: '/cliente/perfil',
     showcase: '/cliente/vitrine',
     notifications: '/cliente/notificacoes',
+    media: '/cliente/midias',
   },
 } as const;

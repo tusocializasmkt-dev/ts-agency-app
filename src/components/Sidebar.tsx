@@ -29,9 +29,10 @@ const clientItems = [
   { to: ROUTES.client.notifications, label: 'Notificações', icon: Bell },
   { to: ROUTES.client.posts, label: 'Feed', icon: ImageIcon },
   { to: ROUTES.client.calendar, label: 'Calendário', icon: CalendarIcon },
+  { to: ROUTES.client.media, label: 'Mídias', icon: Images },
   { to: ROUTES.client.finance, label: 'Financeiro', icon: DollarSign },
   { to: ROUTES.client.metrics, label: 'Insights', icon: TrendingUp },
-  { to: ROUTES.client.profile, label: 'Meu Perfil', icon: Settings },
+  { to: ROUTES.client.profile, label: 'Minha Empresa', icon: Settings },
   { to: ROUTES.client.showcase, label: 'Vitrine', icon: Star },
 ];
 

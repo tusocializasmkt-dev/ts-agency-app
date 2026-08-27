@@ -15,3 +15,4 @@ export * from './useNotifications';
 export * from './useInvoiceHistory';
 export * from './useInvoiceBoleto';
 export * from './usePaymentCheckout';
+export * from './useFileDownload';
