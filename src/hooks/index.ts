@@ -1,4 +1,5 @@
 export * from './useBrands';
+export * from './useBrandShowcase';
 export * from './usePosts';
 export * from './useInvoices';
 export * from './useMetrics';

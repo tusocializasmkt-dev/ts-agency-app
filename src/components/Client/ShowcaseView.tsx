@@ -1,53 +1,20 @@
-import React from 'react';
 import { motion } from 'motion/react';
-import { ShieldCheck, Star } from 'lucide-react';
-import { useBrands } from '../../hooks';
+import { useBrandShowcase } from '../../hooks';
 
-const ShowcaseView: React.FC = () => {
-  const { brands } = useBrands();
+export default function ShowcaseView() {
+  const { clients, loading, error } = useBrandShowcase();
 
-  return (
-    <div className="space-y-16 py-16 max-w-6xl mx-auto">
-      <div className="text-center space-y-6">
-        <div className="flex items-center justify-center gap-2 text-zinc-300">
-           <Star className="w-4 h-4 fill-zinc-300" />
-           <Star className="w-4 h-4 fill-zinc-300" />
-           <Star className="w-4 h-4 fill-zinc-300" />
-        </div>
-        <h2 className="text-5xl font-black tracking-tighter uppercase text-black leading-none">Nossa Vitrine <br/> de Marcas</h2>
-        <p className="text-zinc-400 max-w-xl mx-auto italic text-lg leading-relaxed">Marcas visionárias que confiam na nossa estratégia para dominar o mercado digital.</p>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {brands.map((brand, idx) => (
-          <motion.div 
-            key={brand.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.05 }}
-            className="aspect-square bg-white rounded-[3rem] border border-zinc-100 p-10 flex items-center justify-center grayscale hover:grayscale-0 hover:border-black hover:scale-105 transition-all cursor-default shadow-sm hover:shadow-2xl"
-          >
-            {brand.logoUrl ? (
-               <img src={brand.logoUrl} alt={brand.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
-            ) : (
-               <div className="flex flex-col items-center gap-2">
-                 <span className="text-4xl font-black text-black">{brand.name.charAt(0)}</span>
-                 <span className="text-[10px] font-bold text-zinc-300 uppercase tracking-widest">{brand.name}</span>
-               </div>
-            )}
-          </motion.div>
-        ))}
-      </div>
-
-      <div className="pt-24 border-t border-zinc-100 flex flex-col items-center gap-4 text-zinc-300 text-[10px] uppercase tracking-[0.4em] font-black">
-        <div className="flex items-center gap-3">
-          <ShieldCheck className="w-5 h-5" />
-          <span>Official Partners Showroom</span>
-        </div>
-        <p className="normal-case tracking-normal italic font-medium">Todos os direitos reservados à TS Agency © 2024</p>
-      </div>
-    </div>
-  );
-};
-
-export default ShowcaseView;
+  return <div className="mx-auto max-w-6xl space-y-10 py-10">
+    <header className="space-y-3 text-center">
+      <h2 className="text-4xl font-black tracking-tighter text-black sm:text-5xl">Clientes TuSocializas</h2>
+      <p className="text-base text-zinc-500 sm:text-lg">Marcas que fazem parte da nossa história.</p>
+    </header>
+    {loading ? <div aria-label="Carregando clientes" className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div key={index} className="aspect-square animate-pulse rounded-3xl bg-zinc-100" />)}</div>
+      : error ? <p role="alert" className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center text-sm text-red-700">{error}</p>
+      : clients.length === 0 ? <p className="rounded-2xl border border-zinc-200 bg-white p-10 text-center text-zinc-500">Nossa lista de clientes está sendo preparada.</p>
+      : <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">{clients.map((client, index) => <motion.article key={client.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }} className="flex aspect-square min-w-0 flex-col items-center justify-center gap-4 rounded-3xl border border-zinc-100 bg-white p-5 text-center shadow-sm">
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">{client.logoUrl ? <img src={client.logoUrl} alt={`Logo ${client.displayName}`} className="max-h-full max-w-full object-contain" referrerPolicy="no-referrer" /> : <span aria-hidden="true" className="text-4xl font-black text-black">{client.displayName.charAt(0).toUpperCase()}</span>}</div>
+        <span className="w-full truncate text-xs font-bold text-zinc-600" title={client.displayName}>{client.displayName}</span>
+      </motion.article>)}</div>}
+  </div>;
+}

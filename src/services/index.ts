@@ -1,4 +1,5 @@
 export * from './brands.service';
+export * from './brand-showcase.service';
 export * from './posts.service';
 export * from './invoices.service';
 export * from './metrics.service';

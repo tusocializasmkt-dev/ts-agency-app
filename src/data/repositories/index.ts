@@ -1,4 +1,5 @@
 export * from './brands.repository';
+export * from './brand-showcase.repository';
 export * from './posts.repository';
 export * from './invoices.repository';
 export * from './metrics.repository';

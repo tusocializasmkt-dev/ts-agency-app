@@ -26,7 +26,7 @@ export async function updateBrand(id: string, data: Partial<Brand>): Promise<voi
 
 export async function createBrand(data: Omit<Brand, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
   try {
-    return (await addDoc(collection(db, 'brands'), { ...toBrandWriteData(data), createdAt: serverTimestamp(), updatedAt: serverTimestamp() })).id;
+    return (await addDoc(collection(db, 'brands'), { ...toBrandWriteData(data), showcaseVisible: data.showcaseVisible !== false, createdAt: serverTimestamp(), updatedAt: serverTimestamp() })).id;
   } catch (error) {
     throw normalizeFirestoreError(error, 'create', 'brand');
   }

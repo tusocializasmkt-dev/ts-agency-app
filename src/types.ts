@@ -58,6 +58,7 @@ export interface Brand {
   email?: string;
   status: BrandStatus;
   accessEnabled?: boolean;
+  showcaseVisible?: boolean;
   logoUrl?: string;
   website: string;
   login: string;
@@ -82,6 +83,12 @@ export interface Brand {
   socialLinks: Record<string, string>;
   createdAt?: FirestoreTimestamp;
   updatedAt?: FirestoreTimestamp;
+}
+
+export interface BrandShowcaseItem {
+  id: string;
+  displayName: string;
+  logoUrl?: string;
 }
 
 export interface Post {

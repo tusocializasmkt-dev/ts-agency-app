@@ -10,7 +10,8 @@
     "build": "tsc",
     "test": "npm run build && node --test lib/test/*.test.js",
     "seed:auth:emulator": "npm run build && node scripts/seed-internal-auth.mjs",
-    "grant:storage-admin": "node scripts/grant-storage-admin.mjs"
+    "grant:storage-admin": "node scripts/grant-storage-admin.mjs",
+    "backfill:brand-showcase": "npm run build && node scripts/backfill-brand-showcase.mjs"
   },
   "dependencies": {
     "firebase-admin": "14.2.0",

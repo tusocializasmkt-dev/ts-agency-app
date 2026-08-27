@@ -169,6 +169,12 @@ service cloud.firestore {
         && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl']);
     }
 
+    // Sanitized social-proof projection maintained only by trusted server code.
+    match /brand_showcase/{brandId} {
+      allow read: if isSignedIn() && existing().visible == true;
+      allow create, update, delete: if false;
+    }
+
     // Posts
     match /posts/{postId} {
       allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);

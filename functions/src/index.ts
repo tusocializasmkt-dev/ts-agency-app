@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as logger from 'firebase-functions/logger';
 import { defineSecret } from 'firebase-functions/params';
 import { authenticateInternal, hashPassword, normalizeEmail, type InternalCredential, type InternalRole } from './internal-auth.js';
 import { assertAdminAccess, createClientAccess as createAccess, createClientWithAccess as createWithAccess, resetClientPassword as resetPassword, setClientAccessStatus as setAccessStatus, type ClientAccessDependencies } from './user-access.js';
 import { createMemoryRateLimiter, executeMarketingAi, MarketingAiError, type MarketingAiRole } from './marketing-ai.js';
 import { createTeamMember as createTeam, resetTeamPassword as resetTeam, updateTeamMember as updateTeam, type TeamAccessDependencies, type TeamMemberInput } from './team-access.js';
+import { synchronizeBrandShowcase } from './brand-showcase.js';
 
 type AdminServices = Awaited<ReturnType<typeof initializeAdminServices>>;
 let adminServicesPromise: Promise<AdminServices> | undefined;
@@ -30,6 +32,16 @@ function getAdminServices(): Promise<AdminServices> {
   });
   return adminServicesPromise;
 }
+
+export const syncBrandShowcase = onDocumentWritten({ document: 'brands/{brandId}', region: 'southamerica-east1' }, async event => {
+  const { db, FieldValue } = await getAdminServices();
+  const brandId = event.params.brandId;
+  const after = event.data?.after;
+  await synchronizeBrandShowcase(brandId, after?.exists ? (after.data() as Record<string, unknown>) : null, {
+    upsert: async (id, projection) => { await db.collection('brand_showcase').doc(id).set({ ...projection, updatedAt: FieldValue.serverTimestamp() }); },
+    remove: async id => { await db.collection('brand_showcase').doc(id).delete(); },
+  });
+});
 
 const limitId = (email: string) => createHash('sha256').update(email).digest('hex');
 const windowMs = 15 * 60 * 1000;
@@ -172,7 +184,7 @@ export const createClientWithAccess = onCall({ region: 'southamerica-east1', cor
   const allowedStatuses = ['active', 'warning', 'delinquent', 'suspended', 'banning'];
   const status = allowedStatuses.includes(String(brand.status)) ? String(brand.status) : 'active';
   if (!name || name.length > 100) throw new HttpsError('invalid-argument', 'Informe o nome do cliente.');
-  const safeBrand = { name, status, responsible: String(brand.responsible ?? ''), phone: String(brand.phone ?? ''), cnpj: String(brand.cnpj ?? ''), website: String(brand.website ?? ''), socialLinks: {}, internalNotes: String(brand.internalNotes ?? ''), createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
+  const safeBrand = { name, status, responsible: String(brand.responsible ?? ''), phone: String(brand.phone ?? ''), cnpj: String(brand.cnpj ?? ''), website: String(brand.website ?? ''), socialLinks: {}, internalNotes: String(brand.internalNotes ?? ''), showcaseVisible: true, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() };
   const uid = db.collection('brands').doc().id;
   try { return await createWithAccess(uid, { brandId: uid, email: String(request.data?.email ?? ''), password: String(request.data?.password ?? ''), active: request.data?.active !== false, brand: safeBrand }, { createUser: async data => { await auth.createUser(data); }, createBrand: async (id, data) => { await db.collection('brands').doc(id).create(data); }, deleteUser: async id => { await auth.deleteUser(id); } }); }
   catch (error) { return accessError(error); }

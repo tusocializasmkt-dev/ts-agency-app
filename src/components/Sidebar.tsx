@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { cn } from '../lib/utils';
-import { LayoutDashboard, Users, UserRoundCog, Image as ImageIcon, Images, Calendar as CalendarIcon, DollarSign, TrendingUp, Settings, LogOut, Trash2, Star, Bell } from 'lucide-react';
+import { LayoutDashboard, Users, UserRoundCog, Image as ImageIcon, Images, Calendar as CalendarIcon, DollarSign, TrendingUp, Settings, LogOut, Trash2, Bell } from 'lucide-react';
 import { ROUTES } from '../app/router/routes';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAgencyConfig } from '../hooks/useAgencyConfig';
@@ -33,7 +33,7 @@ const clientItems = [
   { to: ROUTES.client.finance, label: 'Financeiro', icon: DollarSign },
   { to: ROUTES.client.metrics, label: 'Insights', icon: TrendingUp },
   { to: ROUTES.client.profile, label: 'Minha Empresa', icon: Settings },
-  { to: ROUTES.client.showcase, label: 'Vitrine', icon: Star },
+  { to: ROUTES.client.showcase, label: 'Clientes', icon: Users },
 ];
 
 export default function Sidebar() {
