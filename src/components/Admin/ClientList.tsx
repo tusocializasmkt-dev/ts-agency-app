@@ -19,19 +19,19 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={() => onSelectBrand(brand.id)}
-          className="group bg-white border border-zinc-200 p-8 rounded-3xl flex items-center justify-between cursor-pointer hover:border-black transition-all shadow-sm"
+          className="group flex cursor-pointer flex-col gap-5 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-black sm:flex-row sm:items-center sm:justify-between sm:p-8"
         >
-          <div className="flex items-center gap-8">
-            <div className={cn("w-16 h-16 overflow-hidden bg-black text-white rounded-2xl flex items-center justify-center font-bold text-2xl group-hover:scale-105 transition-transform shadow-lg shadow-black/10 ring-4 ring-offset-4", getBrandStatusRingClass(brand.status))}>
+          <div className="flex min-w-0 items-center gap-5 sm:gap-8">
+            <div className={cn("h-16 w-16 shrink-0 overflow-hidden bg-black text-white rounded-2xl flex items-center justify-center font-bold text-2xl group-hover:scale-105 transition-transform shadow-lg shadow-black/10 ring-4 ring-offset-4", getBrandStatusRingClass(brand.status))}>
               {brand.logoUrl ? <img src={brand.logoUrl} alt={`Logotipo de ${brand.name}`} className="h-full w-full object-cover" loading="lazy" /> : brand.name.charAt(0).toUpperCase()}
             </div>
-            <div>
-              <h3 className="text-2xl font-bold tracking-tight">{brand.name}</h3>
-              <div className="flex items-center gap-6 mt-2">
+            <div className="min-w-0">
+              <h3 className="truncate text-xl font-bold tracking-tight sm:text-2xl">{brand.name}</h3>
+              <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
                 {brand.website && (
                   <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                     <Globe className="w-3.5 h-3.5" />
-                    <span>{brand.website.replace('https://', '')}</span>
+                    <span className="truncate">{brand.website.replace('https://', '')}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
@@ -42,7 +42,7 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-8">
+          <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-8">
              <div className={cn(
                 "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border",
                 getBrandStatusBadgeClass(brand.status)
@@ -57,7 +57,7 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
       ))}
 
       {brands.length === 0 && (
-        <div className="text-center p-20 bg-zinc-50 border border-dashed border-zinc-200 rounded-3xl">
+        <div className="rounded-3xl border border-dashed border-zinc-200 bg-zinc-50 p-10 text-center sm:p-20">
           <p className="text-zinc-400 font-medium font-mono uppercase tracking-[0.2em] text-xs underline underline-offset-8 decoration-zinc-200">Nenhum cliente cadastrado.</p>
           <p className="mt-3 text-sm text-zinc-500">Use “Novo cliente” para começar.</p>
         </div>

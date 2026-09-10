@@ -26,8 +26,8 @@ const TrashView: React.FC = () => {
 
   return (
     <div className="space-y-8">
-       <div className="bg-red-50 border border-red-100 p-8 rounded-3xl flex items-center gap-6">
-          <div className="p-4 bg-red-500 text-white rounded-2xl shadow-lg">
+       <div className="flex flex-col gap-5 rounded-3xl border border-red-100 bg-red-50 p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-8">
+          <div className="self-start rounded-2xl bg-red-500 p-4 text-white shadow-lg">
             <AlertCircle className="w-8 h-8" />
           </div>
           <div>
@@ -52,7 +52,7 @@ const TrashView: React.FC = () => {
        </div>
 
        {items.length === 0 && (
-          <div className="text-center p-24 border border-dashed border-zinc-200 bg-zinc-50 rounded-[3rem]">
+          <div className="rounded-[2rem] border border-dashed border-zinc-200 bg-zinc-50 p-10 text-center sm:rounded-[3rem] sm:p-24">
             <p className="text-zinc-400 font-bold uppercase tracking-[0.3em] text-xs underline underline-offset-8 decoration-zinc-200">A lixeira está vazia.</p>
           </div>
        )}

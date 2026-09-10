@@ -71,23 +71,23 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
   if (error || !brand) return <div className="p-20 text-center text-red-500">{error || 'Cliente não encontrado.'}</div>;
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      <div className="flex justify-between items-center bg-white p-8 rounded-3xl border border-zinc-200 shadow-sm">
-        <div className="flex items-center gap-6">
+    <div className="max-w-6xl min-w-0 space-y-8">
+      <div className="flex flex-col gap-6 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-5 sm:gap-6">
           <button type="button" onClick={() => isAdmin && logoInput.current?.click()} disabled={!isAdmin || uploadingLogo} aria-label={isAdmin ? 'Alterar logotipo' : 'Logotipo do cliente'} className={cn("relative w-16 h-16 bg-black text-white rounded-2xl flex shrink-0 items-center justify-center overflow-hidden font-bold text-3xl shadow-xl shadow-black/10 ring-4 ring-offset-4 transition-opacity", getBrandStatusRingClass(data.status), uploadingLogo && "opacity-60")}>
             {(logoPreview || data.logoUrl) ? <img src={logoPreview || data.logoUrl} alt={`Logotipo de ${data.name || 'cliente'}`} className="h-full w-full object-cover" /> : data.name?.charAt(0).toUpperCase()}
             {uploadingLogo && <span className="absolute inset-0 flex items-center justify-center bg-black/60 text-[9px] uppercase tracking-wider">Enviando</span>}
           </button>
           <input ref={logoInput} type="file" accept="image/*" className="hidden" onChange={event => void handleLogoChange(event.target.files?.[0])} />
-          <div>
-            <h2 className="text-3xl font-black uppercase tracking-tighter">{data.name}</h2>
-            <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em]">{brandId}</p>
+          <div className="min-w-0">
+            <h2 className="break-words text-2xl font-black uppercase tracking-tighter sm:text-3xl">{data.name}</h2>
+            <p className="break-all text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400">{brandId}</p>
             {isAdmin && <button type="button" disabled={uploadingLogo} onClick={() => logoInput.current?.click()} className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black"><Upload className="mr-1 inline h-3 w-3" />{uploadingLogo ? 'Enviando...' : 'Alterar logotipo'}</button>}
           </div>
         </div>
         <button 
           onClick={handleSave}
-          className="bg-black text-white px-8 py-4 rounded-2xl text-sm font-bold flex items-center gap-3 hover:bg-zinc-800 transition-all shadow-xl shadow-black/5"
+          className="flex min-h-11 w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 py-4 text-sm font-bold text-white shadow-xl shadow-black/5 transition-all hover:bg-zinc-800 sm:w-auto sm:px-8"
         >
           <Save className="w-5 h-5" /> Salvar Alterações
         </button>
@@ -95,7 +95,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
+          <div className="space-y-8 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm sm:rounded-[2.5rem] sm:p-10">
              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 flex items-center gap-2 italic">
                <Building className="w-4 h-4" /> Informações Corporativas
              </h3>
@@ -113,7 +113,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
 
           {isAdmin && <div className="rounded-[2.5rem] border border-zinc-200 bg-white p-10 shadow-sm"><label className="flex cursor-pointer items-start justify-between gap-6"><span><span className="block text-sm font-bold text-black">Exibir para outros clientes</span><span className="mt-2 block text-xs leading-relaxed text-zinc-500">Permite que esta marca apareça na área Clientes do portal como parte do portfólio da agência.</span></span><input aria-label="Exibir para outros clientes" type="checkbox" checked={data.showcaseVisible !== false} onChange={event => setData({...data, showcaseVisible: event.target.checked})} className="mt-1 h-5 w-5 accent-black" /></label></div>}
 
-          {isAdmin && <div className="bg-white border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
+          {isAdmin && <div className="space-y-8 rounded-[2rem] border border-zinc-200 bg-white p-5 shadow-sm sm:rounded-[2.5rem] sm:p-10">
              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 flex items-center gap-2 italic">
                <Link2 className="w-4 h-4 text-zinc-300" /> Links Estratégicos
              </h3>
@@ -125,7 +125,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
         </div>
 
         <div className="space-y-8">
-           <div className="bg-zinc-50 border border-zinc-200 rounded-[2.5rem] p-10 space-y-8 shadow-sm">
+           <div className="space-y-8 rounded-[2rem] border border-zinc-200 bg-zinc-50 p-5 shadow-sm sm:rounded-[2.5rem] sm:p-10">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-400 mb-6 italic">Status do Cliente</h3>
               <div className="flex flex-col gap-4">
                  {BRAND_STATUSES.map(s => (
@@ -146,16 +146,16 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
               </div>
            </div>
 
-           {isAdmin && <div className="bg-black text-white border border-black rounded-[2.5rem] p-10 space-y-8 shadow-2xl">
+           {isAdmin && <div className="space-y-8 rounded-[2rem] border border-black bg-black p-5 text-white shadow-2xl sm:rounded-[2.5rem] sm:p-10">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-6 flex items-center gap-2">
                 <Key className="w-4 h-4" /> Acesso do Cliente
               </h3>
               <div className="space-y-4">
                 <p className="text-[11px] text-zinc-500 italic leading-relaxed">Este cliente acessa a plataforma usando as credenciais abaixo.</p>
                 <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl space-y-2">
-                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                   <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
                      <span>Login</span>
-                     <span className="text-white">{data.email}</span>
+                     <span className="break-all text-white">{data.email}</span>
                    </div>
                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
                      <span>Status</span>

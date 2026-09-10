@@ -20,7 +20,7 @@ const DashboardCards: React.FC<DashboardCardsProps> = ({ brands }) => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {stats.map((stat) => (
-        <div key={stat.label} className="bg-white border border-zinc-200 p-8 rounded-3xl flex items-center justify-between group hover:border-black transition-all shadow-sm">
+        <div key={stat.label} className="group flex items-center justify-between rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-black sm:p-8">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-2">{stat.label}</p>
             <p className={cn("text-3xl font-bold font-mono tracking-tighter", stat.color.replace('text-white', 'text-black'))}>{stat.value}</p>
