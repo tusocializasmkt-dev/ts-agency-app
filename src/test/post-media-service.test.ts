@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const repositories = vi.hoisted(() => ({ createPost: vi.fn(), movePostToTrash: vi.fn(), updatePost: vi.fn(), getPostById: vi.fn(), commitPostDecision: vi.fn(), subscribeToPostHistory: vi.fn(), subscribeToPosts: vi.fn(), subscribeToPostsByBrand: vi.fn(), subscribeToPostsByMonth: vi.fn(), subscribeToNotifications: vi.fn(), subscribeToUnreadCount: vi.fn(), markNotificationAsRead: vi.fn(), markAllNotificationsAsRead: vi.fn(), createNotification: vi.fn(), listAdminUids: vi.fn() }));
+const repositories = vi.hoisted(() => ({ createPost: vi.fn(), movePostToTrash: vi.fn(), updatePost: vi.fn(), getPostById: vi.fn(), commitPostDecision: vi.fn(), subscribeToPostHistory: vi.fn(), subscribeToPosts: vi.fn(), subscribeToPostsByBrand: vi.fn(), subscribeToPostsByBrands: vi.fn(), subscribeToPostsByMonth: vi.fn(), subscribeToPostsByBrandsAndMonth: vi.fn(), subscribeToNotifications: vi.fn(), subscribeToUnreadCount: vi.fn(), markNotificationAsRead: vi.fn(), markAllNotificationsAsRead: vi.fn(), createNotification: vi.fn(), listAdminUids: vi.fn() }));
 const media = vi.hoisted(() => ({ loadMediaByIds: vi.fn() }));
 vi.mock('../data/repositories', () => repositories); vi.mock('../services/media.service', () => media);
 import { createPost, validatePostMedia } from '../services/posts.service';

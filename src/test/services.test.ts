@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const repositories = vi.hoisted(() => ({
-  subscribeToBrands: vi.fn(), getBrandById: vi.fn(), createBrand: vi.fn(), updateBrand: vi.fn(), updateClientEditableFields: vi.fn(),
-  createPost: vi.fn(), movePostToTrash: vi.fn(), subscribeToPosts: vi.fn(), subscribeToPostsByBrand: vi.fn(), subscribeToPostsByMonth: vi.fn(), subscribeToPostHistory: vi.fn(), updatePost: vi.fn(), getPostById: vi.fn(), commitPostDecision: vi.fn(),
+  subscribeToBrands: vi.fn(), subscribeToBrandsByIds: vi.fn(), getBrandById: vi.fn(), createBrand: vi.fn(), updateBrand: vi.fn(), updateClientEditableFields: vi.fn(),
+  createPost: vi.fn(), movePostToTrash: vi.fn(), subscribeToPosts: vi.fn(), subscribeToPostsByBrand: vi.fn(), subscribeToPostsByBrands: vi.fn(), subscribeToPostsByMonth: vi.fn(), subscribeToPostsByBrandsAndMonth: vi.fn(), subscribeToPostHistory: vi.fn(), updatePost: vi.fn(), getPostById: vi.fn(), commitPostDecision: vi.fn(),
   subscribeToInvoices: vi.fn(), subscribeToInvoicesByBrand: vi.fn(), subscribeToInvoiceHistory: vi.fn(), getInvoiceById: vi.fn(), createInvoice: vi.fn(), updateInvoice: vi.fn(), markInvoicePaid: vi.fn(), suspendInvoice: vi.fn(), resumeInvoice: vi.fn(), cancelInvoice: vi.fn(), replaceInvoiceBoleto: vi.fn(), reviewPaymentPromise: vi.fn(),
   subscribeToTrash: vi.fn(), restoreTrashItem: vi.fn(), permanentlyDeleteTrashItem: vi.fn(),
   subscribeToAgencyConfig: vi.fn(), updateAgencyConfig: vi.fn(),

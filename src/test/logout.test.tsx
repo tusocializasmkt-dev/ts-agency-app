@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 const signOut = vi.hoisted(() => vi.fn());
 vi.mock('../contexts/AuthContext', () => ({ useAuth: () => ({ role: 'admin' }) }));
 vi.mock('../hooks/useNotifications', () => ({ useNotifications: () => ({ unreadCount: 0 }) }));
+vi.mock('../hooks/useAgencyConfig', () => ({ useAgencyConfig: () => ({ config: {} }) }));
 vi.mock('../lib/firebase', () => ({ auth: {} }));
 vi.mock('firebase/auth', () => ({ signOut }));
 import Sidebar from '../components/Sidebar';

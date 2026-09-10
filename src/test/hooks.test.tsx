@@ -1,5 +1,10 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../contexts/AuthContext', () => ({
+  useAuth: () => ({ role: 'admin', isAdmin: true, isTeamMember: false, brandId: null, brandIds: [] }),
+}));
+
 import { useBrands } from '../hooks/useBrands';
 import { usePosts } from '../hooks/usePosts';
 import { useInvoices } from '../hooks/useInvoices';
@@ -21,7 +26,7 @@ describe('hooks de dados', () => {
   it('useBrands recebe dados, limpa subscription, executa comando e erro/reset', async () => {
     const unsubscribe = vi.fn(); services.watchBrands.mockImplementation((data) => { data([{ id: 'b' }]); return unsubscribe; });
     const { result, unmount } = renderHook(() => useBrands()); await waitFor(() => expect(result.current.loading).toBe(false)); expect(result.current.brands).toHaveLength(1); await act(() => result.current.update('b', {})); expect(services.saveBrand).toHaveBeenCalled(); unmount(); expect(unsubscribe).toHaveBeenCalled();
-    services.saveBrand.mockRejectedValueOnce(new Error()); const failed = renderHook(() => useBrands(undefined, false)); await expect(failed.result.current.update('b', {})).rejects.toThrow(); await waitFor(() => expect(failed.result.current.error).toMatch(/salvar/)); act(() => failed.result.current.resetError()); expect(failed.result.current.error).toBeNull();
+    services.saveBrand.mockRejectedValueOnce(new Error()); const failed = renderHook(() => useBrands(undefined, false)); await waitFor(() => expect(failed.result.current.loading).toBe(false)); await act(async () => { await expect(failed.result.current.update('b', {})).rejects.toThrow(); }); await waitFor(() => expect(failed.result.current.error).toMatch(/salvar/)); act(() => failed.result.current.resetError()); expect(failed.result.current.error).toBeNull();
   });
   it('usePosts recebe dados, limpa subscription e aprova', async () => {
     const unsubscribe = vi.fn(); services.watchPosts.mockImplementation((data) => { data([{ id: 'p' }]); return unsubscribe; }); const { result, unmount } = renderHook(() => usePosts({ actorUid: 'u', actorRole: 'client' })); await waitFor(() => expect(result.current.loading).toBe(false)); await act(() => result.current.approve('p')); expect(services.approvePost).toHaveBeenCalledWith('p', { actorUid: 'u', actorRole: 'client' }); unmount(); expect(unsubscribe).toHaveBeenCalled();

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 const upload = vi.hoisted(() => ({ items: [], isUploading: false, clearAll: vi.fn(), enqueue: vi.fn(), start: vi.fn(), cancel: vi.fn(), retry: vi.fn() }));
@@ -17,7 +17,8 @@ describe('dialogs financeiros', () => {
     fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '120,50' } });
     fireEvent.change(screen.getByLabelText('Vencimento'), { target: { value: '2026-08-20' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    await vi.waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ brandId: 'b', description: 'Mensalidade', amount: 120.5, dueDate: '2026-08-20' }), undefined, undefined));
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ brandId: 'b', description: 'Mensalidade', amount: 120.5, dueDate: '2026-08-20' }), undefined, undefined));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar' })).toBeEnabled());
   });
 
   it('valida PDF antes de iniciar o uploader reutilizado', () => {
@@ -33,7 +34,8 @@ describe('dialogs financeiros', () => {
     render(<InvoiceDialog brands={[{ id: 'b', name: 'Marca' } as never]} processing={false} onCancel={vi.fn()} onConfirm={confirm} />);
     fireEvent.click(screen.getByLabelText('Cobrança recorrente')); fireEvent.change(screen.getByLabelText('Cliente'), { target: { value: 'b' } }); fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Mensalidade' } }); fireEvent.change(screen.getByLabelText('Valor'), { target: { value: '1200' } }); fireEvent.change(screen.getByLabelText('Mês/ano inicial'), { target: { value: '2026-09' } }); fireEvent.change(screen.getByLabelText('Mês/ano final'), { target: { value: '2026-12' } }); fireEvent.change(screen.getByLabelText('Dia do vencimento'), { target: { value: '10' } });
     expect(screen.getByText('Serão criadas 4 cobranças.')).toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Criar série' }));
-    await vi.waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ amount: 1200 }), undefined, { start: '2026-09', end: '2026-12', day: 10 }));
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ amount: 1200 }), undefined, { start: '2026-09', end: '2026-12', day: 10 }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Criar série' })).toBeEnabled());
   });
 
   it('valida promessa e reprovação antes de confirmar', async () => {
