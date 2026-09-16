@@ -12,7 +12,7 @@ describe('área Clientes do portal', () => {
   it('mostra somente logo e nome em cards não clicáveis', () => {
     mockedHook.mockReturnValue({ clients: [{ id: 'a', displayName: 'Finoclima', logoUrl: 'https://logo.test/fino.png' }, { id: 'b', displayName: 'ABG' }], loading: false, error: null });
     const { container } = render(<ShowcaseView />);
-    expect(screen.getByRole('heading', { name: 'Clientes TuSocializas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Clientes' })).toBeInTheDocument();
     expect(screen.getByText('Marcas que fazem parte da nossa história.')).toBeInTheDocument();
     expect(screen.getByAltText('Logo Finoclima')).toHaveAttribute('src', 'https://logo.test/fino.png');
     expect(screen.getByText('ABG')).toBeInTheDocument();

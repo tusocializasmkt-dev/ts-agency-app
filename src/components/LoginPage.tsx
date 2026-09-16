@@ -85,7 +85,7 @@ const LoginPage: React.FC = () => {
         </form>
 
         <div className="mt-10 pt-8 border-t border-zinc-100 text-center">
-          <p className="text-zinc-300 text-[10px] uppercase tracking-[0.3em] font-bold">TS Agency Internal System v2.0</p>
+          <p className="text-zinc-300 text-[10px] uppercase tracking-[0.3em] font-bold">Portal TS Agency</p>
         </div>
       </motion.div>
     </div>

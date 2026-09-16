@@ -6,7 +6,7 @@ export default function ShowcaseView() {
 
   return <div className="mx-auto max-w-6xl space-y-10 py-10">
     <header className="space-y-3 text-center">
-      <h2 className="text-4xl font-black tracking-tighter text-black sm:text-5xl">Clientes TuSocializas</h2>
+      <h2 className="text-4xl font-black tracking-tighter text-black sm:text-5xl">Clientes</h2>
       <p className="text-base text-zinc-500 sm:text-lg">Marcas que fazem parte da nossa história.</p>
     </header>
     {loading ? <div aria-label="Carregando clientes" className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <div key={index} className="aspect-square animate-pulse rounded-3xl bg-zinc-100" />)}</div>
