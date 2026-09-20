@@ -5,13 +5,14 @@ import { normalizeMediaError } from '../../media';
 export const createStorageReference = (path: string): StorageReference => ref(storage, path);
 
 export interface UploadCallbacks {
+  category?: string;
   onProgress?: (bytesTransferred: number, totalBytes: number) => void;
 }
 
 export interface UploadController { task: UploadTask; completion: Promise<StorageReference>; cancel: () => boolean; }
 
 export function uploadFile(reference: StorageReference, file: Blob | Uint8Array | ArrayBuffer, callbacks: UploadCallbacks = {}): UploadController {
-  const task = uploadBytesResumable(reference, file);
+  const task = uploadBytesResumable(reference, file, { customMetadata: { category: callbacks.category ?? 'other' } });
   const completion = new Promise<StorageReference>((resolve, reject) => {
     task.on('state_changed', snapshot => callbacks.onProgress?.(snapshot.bytesTransferred, snapshot.totalBytes), error => reject(normalizeMediaError(error)), () => resolve(task.snapshot.ref));
   });

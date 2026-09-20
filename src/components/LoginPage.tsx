@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signIn } from '../services/auth-session.service';
+import PasswordInput from './auth/PasswordInput';
+import { supportUrl } from '../config/support';
 import { FirebaseError } from 'firebase/app';
-import { auth } from '../lib/firebase';
 import { motion } from 'motion/react';
 import { Lock, Mail, Loader2 } from 'lucide-react';
 import { useFeedback } from '../hooks';
@@ -17,14 +18,15 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await signIn(email, password);
       feedback.success('Bem-vindo!');
     } catch (error) {
       const code = error instanceof FirebaseError ? error.code : (typeof error === 'object' && error && 'code' in error ? String(error.code) : '');
       if (code === 'auth/user-disabled') feedback.error('Este acesso está desativado. Fale com a agência.');
       else if (code === 'auth/too-many-requests') feedback.error('Muitas tentativas. Aguarde alguns minutos.');
       else if (code === 'auth/network-request-failed') feedback.error('Não foi possível conectar. Tente novamente.');
-      else feedback.error('E-mail ou senha inválidos.');
+      else if (['auth/invalid-credential', 'auth/wrong-password', 'auth/user-not-found', 'auth/invalid-email'].includes(code)) feedback.error('E-mail ou senha inválidos.');
+      else feedback.error('Não foi possível entrar. Tente novamente ou fale com o suporte.');
     } finally {
       setLoading(false);
     }
@@ -62,9 +64,9 @@ const LoginPage: React.FC = () => {
           <div>
             <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-400 mb-2 font-bold">Senha</label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300" />
-              <input 
-                type="password"
+              <Lock className="pointer-events-none z-10 absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300" />
+              <PasswordInput
+                aria-label="Senha"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -82,6 +84,7 @@ const LoginPage: React.FC = () => {
           >
             {loading ? <Loader2 className="animate-spin w-4 h-4" /> : 'Entrar na Plataforma'}
           </button>
+          <a href={supportUrl('recovery')} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center justify-center text-sm font-bold underline">Esqueci minha senha</a>
         </form>
 
         <div className="mt-10 pt-8 border-t border-zinc-100 text-center">

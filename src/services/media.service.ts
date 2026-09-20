@@ -29,7 +29,7 @@ export function prepareMediaUpload(brandId: string, file: File, category: MediaC
   const storagePath = buildBrandMediaPath(brandId, mediaId, file.name);
   return {
     mediaId, storagePath,
-    record: { brandId, fileName: storagePath.split('/').pop()!, originalFileName: file.name, mediaType: file.type === 'application/pdf' ? 'document' : file.type.startsWith('video/') ? 'video' : 'image', category, mimeType: file.type, sizeBytes: file.size, storagePath, status: 'pending', source: 'upload' },
+    record: { brandId, fileName: storagePath.split('/').pop()!, originalFileName: file.name, mediaType: file.type === 'application/pdf' ? 'document' : file.type.startsWith('video/') ? 'video' : 'image', category, teamVisible: category !== 'invoice', mimeType: file.type, sizeBytes: file.size, storagePath, status: 'pending', source: 'upload' },
   };
 }
 
@@ -53,7 +53,7 @@ export function startPreparedMediaUpload(prepared: PreparedMediaUpload, file: Fi
   const completion = (async () => {
     await createPendingMediaRecord(prepared);
     const reference = storageRepository.createStorageReference(prepared.storagePath);
-    controller = storageRepository.uploadFile(reference, file, { onProgress: (bytesTransferred, totalBytes) => onProgress?.({ bytesTransferred, totalBytes, percentage: totalBytes ? Math.round(bytesTransferred / totalBytes * 100) : 0 }) });
+    controller = storageRepository.uploadFile(reference, file, { category: prepared.record.category, onProgress: (bytesTransferred, totalBytes) => onProgress?.({ bytesTransferred, totalBytes, percentage: totalBytes ? Math.round(bytesTransferred / totalBytes * 100) : 0 }) });
     try {
       const uploadedReference = await controller.completion;
       const downloadUrl = await storageRepository.getFileDownloadUrl(uploadedReference);

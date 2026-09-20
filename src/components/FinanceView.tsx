@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { supportUrl } from '../config/support';
 import { Calendar, Copy, FileText, Plus } from 'lucide-react';
 import type { Invoice, InvoiceStatus } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -80,6 +81,6 @@ export default function FinanceView({ selectedBrandId, isAdmin, onBrandChange }:
     {editing && <InvoiceDialog invoice={editing === 'new' ? undefined : editing} brands={brands} processing={busy} onCancel={() => setEditing(null)} onConfirm={async (data, boletoMediaId, recurrence) => { setBusy(true); try { if (editing === 'new' && recurrence) { await invoiceActions.createRecurring({ brandId: data.brandId, description: data.description, amount: data.amount, notes: data.notes, pixKey: data.pixKey, pixKeyType: data.pixKeyType, pixLink: data.pixLink, boletoUrl: data.boletoUrl, recurrence }); } else if (editing === 'new') { const id = await invoiceActions.create(data); if (boletoMediaId && typeof id === 'string') await invoiceActions.replaceBoleto(id, boletoMediaId); } else { await invoiceActions.edit(editing.id, data); if (boletoMediaId) await invoiceActions.replaceBoleto(editing.id, boletoMediaId); } feedback.success(recurrence ? 'Série de cobranças criada.' : 'Cobrança salva.'); setEditing(null); } finally { setBusy(false); } }} />}
     {promiseInvoice && <PaymentPromiseDialog maxDate={plusDays(promiseInvoice.dueDate, PAYMENT_PROMISE_MAX_DAYS)} processing={busy} onCancel={() => setPromiseInvoice(null)} onConfirm={async (date, reason) => { await execute(() => invoiceActions.requestPromise(promiseInvoice.id, date, reason), 'Promessa enviada.'); setPromiseInvoice(null); }} />}
     {reviewInvoice && <PromiseReviewDialog processing={busy} onCancel={() => setReviewInvoice(null)} onConfirm={async note => { await execute(() => invoiceActions.rejectPromise(reviewInvoice.id, note), 'Promessa reprovada.'); setReviewInvoice(null); }} />}
-    {config?.phone && !isAdmin && <a href={`https://wa.me/${config.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-block text-sm font-bold underline">Falar com a agência</a>}
+    {!isAdmin && <a href={supportUrl()} target="_blank" rel="noopener noreferrer" className="inline-block text-sm font-bold underline">Falar com a agência</a>}
   </div>;
 }

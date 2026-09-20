@@ -1,3 +1,5 @@
+import { supportUrl } from '../config/support';
+import { clearLastRoute } from '../app/router/last-route';
 import { useEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,6 +22,7 @@ const adminItems = [
   { to: ROUTES.admin.media, label: 'Mídias', icon: Images },
   { to: ROUTES.admin.trash, label: 'Lixeira', icon: Trash2 },
   { to: ROUTES.admin.settings, label: 'Configurações', icon: Settings },
+  { to: ROUTES.admin.access, label: 'Administradores', icon: UserRoundCog },
   { to: ROUTES.admin.team, label: 'Equipe', icon: UserRoundCog },
 ];
 
@@ -43,7 +46,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { unreadCount } = useNotifications();
   const { config } = useAgencyConfig();
   const location = useLocation();
@@ -86,7 +89,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
           </NavLink>
         ))}
       </nav>
-      <div className="mt-auto p-4"><button onClick={() => signOut(auth)} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50"><LogOut className="h-4 w-4" />Sair</button></div>
+      <div className="mt-auto p-4"><a href={supportUrl()} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center px-4 text-sm font-bold">Suporte</a><button onClick={() => { if (user) clearLastRoute(user.uid); return signOut(auth); }} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold text-red-500 transition-colors hover:bg-red-50"><LogOut className="h-4 w-4" />Sair</button></div>
       </aside>
     </>
   );

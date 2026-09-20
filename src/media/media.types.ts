@@ -12,6 +12,7 @@ export interface MediaAsset {
   originalFileName: string;
   mediaType: MediaType;
   category: MediaCategory;
+  teamVisible?: boolean;
   mimeType: string;
   sizeBytes: number;
   storagePath: string;

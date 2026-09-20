@@ -16,11 +16,11 @@ export function useBrands(brandId?: string, enabled = true) {
     setLoading(true); setError(null);
     if (!brandId) {
       const scopedIds = isTeamMember ? brandIds : role === 'client' && authenticatedBrandId ? [authenticatedBrandId] : null;
-      return scopedIds ? watchBrandsByIds(scopedIds, data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); }) : watchBrands(data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); });
+      return scopedIds ? watchBrandsByIds(scopedIds, data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); }, isTeamMember) : watchBrands(data => { setBrands(data); setLoading(false); }, () => { setError('Não foi possível carregar os clientes.'); setLoading(false); });
     }
     if (isTeamMember && !brandIds.includes(brandId)) { setBrand(null); setError('Você não possui acesso a este cliente.'); setLoading(false); return; }
     let active = true;
-    loadBrand(brandId).then(data => { if (active) { setBrand(data); setLoading(false); } }).catch(() => { if (active) { setError('Não foi possível carregar o cliente.'); setLoading(false); } });
+    loadBrand(brandId, isTeamMember).then(data => { if (active) { setBrand(data); setLoading(false); } }).catch(() => { if (active) { setError('Não foi possível carregar o cliente.'); setLoading(false); } });
     return () => { active = false; };
   }, [brandId, enabled, role, authenticatedBrandId, isTeamMember, brandIds.join('|')]);
 

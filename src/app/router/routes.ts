@@ -17,6 +17,7 @@ export const ROUTES = {
     media: '/admin/midias',
     notifications: '/admin/notificacoes',
     team: '/admin/equipe',
+    access: '/admin/administradores',
   },
   client: {
     root: '/cliente',

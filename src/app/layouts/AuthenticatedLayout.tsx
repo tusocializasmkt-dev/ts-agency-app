@@ -1,3 +1,4 @@
+import RememberRoute from '../router/RememberRoute';
 import { useCallback, useRef, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
@@ -16,7 +17,7 @@ export default function AuthenticatedLayout() {
   }, []);
 
   return <div className="flex min-h-screen min-w-0 overflow-x-hidden bg-[#FDFDFD] text-black">
-    <Sidebar mobileOpen={mobileMenuOpen} onMobileClose={closeMobileMenu} />
+    <RememberRoute /><Sidebar mobileOpen={mobileMenuOpen} onMobileClose={closeMobileMenu} />
     <div className="flex min-w-0 flex-1 flex-col">
       <header className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-zinc-200 bg-white/95 px-4 backdrop-blur lg:hidden">
         <button ref={menuButtonRef} type="button" aria-label="Abrir menu de navegação" aria-controls="authenticated-navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black">

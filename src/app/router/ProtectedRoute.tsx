@@ -1,3 +1,4 @@
+import { clearLastRoute } from './last-route';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,7 +16,7 @@ export const ProfileError = ({ message }: { message?: string | null }) => (
     <div className="w-full max-w-md bg-white border border-zinc-200 p-10 rounded-3xl shadow-sm text-center">
       <h1 className="text-2xl font-bold tracking-tight mb-3">Acesso não configurado</h1>
       <p className="text-zinc-500 text-sm mb-8">{message || 'Não foi possível identificar seu perfil de acesso.'}</p>
-      <button onClick={() => signOut(auth)} className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-zinc-800 transition-all">Voltar ao login</button>
+      <button onClick={() => { if (auth.currentUser) clearLastRoute(auth.currentUser.uid); return signOut(auth); }} className="w-full bg-black text-white font-bold py-4 rounded-2xl hover:bg-zinc-800 transition-all">Voltar ao login</button>
     </div>
   </div>
 );

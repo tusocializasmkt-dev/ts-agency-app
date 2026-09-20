@@ -6,11 +6,11 @@ import { mapBrand, toBrandWriteData } from '../mappers';
 
 export const subscribeToBrands = (onData: DataListener<Brand[]>, onError: ErrorListener) =>
   subscribeToQuery(collection(db, 'brands'), mapBrand, onData, onError, 'brand', 'subscribe');
-export const subscribeToBrandsByIds = (ids: string[], onData: DataListener<Brand[]>, onError: ErrorListener) => ids.length ? subscribeToQuery(query(collection(db, 'brands'), where(documentId(), 'in', ids.slice(0, 30))), mapBrand, onData, onError, 'brand', 'subscribe-scoped') : (onData([]), () => {});
+export const subscribeToBrandsByIds = (ids: string[], onData: DataListener<Brand[]>, onError: ErrorListener, team = false) => ids.length ? subscribeToQuery(query(collection(db, team ? 'team_brands' : 'brands'), where(documentId(), 'in', ids.slice(0, 30))), mapBrand, onData, onError, 'brand', 'subscribe-scoped') : (onData([]), () => {});
 
-export async function getBrandById(id: string): Promise<Brand> {
+export async function getBrandById(id: string, team = false): Promise<Brand> {
   try {
-    return mapBrand(await getDoc(doc(db, 'brands', id)));
+    return mapBrand(await getDoc(doc(db, team ? 'team_brands' : 'brands', id)));
   } catch (error) {
     throw normalizeFirestoreError(error, 'read', 'brand');
   }

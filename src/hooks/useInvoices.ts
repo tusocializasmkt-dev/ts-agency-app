@@ -3,11 +3,11 @@ import type { Invoice, InvoiceStatus, UserRole } from '../types';
 import * as service from '../services';
 
 interface Options { brandId?: string | null; status?: InvoiceStatus; actorUid?: string; actorRole?: UserRole; }
-export function useInvoices(brandOrOptions?: string | null | Options, legacyStatus?: InvoiceStatus) {
+export function useInvoices(brandOrOptions?: string | null | Options, legacyStatus?: InvoiceStatus, enabled = true) {
   const options: Options = typeof brandOrOptions === 'object' && brandOrOptions !== null ? brandOrOptions : { brandId: brandOrOptions as string | null | undefined, status: legacyStatus };
   const { brandId, status, actorUid = '', actorRole = 'client' } = options;
   const [invoices, setInvoices] = useState<Invoice[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setLoading(true); setError(null); const onData = (data: Invoice[]) => { setInvoices(data); setLoading(false); }; const onError = () => { setError('Não foi possível carregar as faturas.'); setLoading(false); }; return brandId ? service.watchBrandInvoices(brandId, onData, onError, status) : service.watchInvoices(onData, onError, status); }, [brandId, status]);
+  useEffect(() => { if (!enabled) { setInvoices([]); setLoading(false); return; } setLoading(true); setError(null); const onData = (data: Invoice[]) => { setInvoices(data); setLoading(false); }; const onError = () => { setError('Não foi possível carregar as faturas.'); setLoading(false); }; return brandId ? service.watchBrandInvoices(brandId, onData, onError, status) : service.watchInvoices(onData, onError, status); }, [brandId, status, enabled]);
   const run = useCallback(async (command: () => Promise<unknown>, message: string) => { setError(null); try { return await command(); } catch (cause) { setError(message); throw cause; } }, []); const actor = { actorUid, actorRole };
   return {
     invoices, loading, error, resetError: () => setError(null),

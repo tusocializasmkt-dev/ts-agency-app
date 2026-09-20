@@ -28,8 +28,12 @@ service firebase.storage {
     }
 
     match /brands/{brandId}/media/{mediaId}/{fileName} {
-      allow read: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
-      allow write: if isAdmin() || hasBrandAccess(brandId);
+      allow read: if isAdmin() || isOwner(brandId) || (hasBrandAccess(brandId) && resource.metadata.category in ['feed', 'stories', 'reels', 'carousel', 'other']);
+      allow write: if isAdmin();
+      allow create: if resource == null && hasBrandAccess(brandId) && request.resource.metadata.category in ['feed', 'stories', 'reels', 'carousel', 'other'];
+      allow update: if hasBrandAccess(brandId) && resource.metadata.category in ['feed', 'stories', 'reels', 'carousel', 'other']
+        && request.resource.metadata.category in ['feed', 'stories', 'reels', 'carousel', 'other'];
+      allow delete: if hasBrandAccess(brandId) && resource.metadata.category in ['feed', 'stories', 'reels', 'carousel', 'other'];
       allow create, update: if isOwner(brandId)
         && mediaId == 'logos'
         && request.resource.size <= 5 * 1024 * 1024

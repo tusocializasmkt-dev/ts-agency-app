@@ -6,8 +6,11 @@ export function requireAuthenticatedUid(auth: { uid: string } | undefined): stri
 
 export async function resolveAuthenticatedActor(db: Firestore, uid: string): Promise<AuthenticatedActor> {
   if (!uid) throw new AppError('unauthenticated', 'Autenticação necessária.');
-  if ((await db.doc(`admins/${uid}`).get()).exists) return { uid, role: 'admin' };
-  if ((await db.doc(`brands/${uid}`).get()).exists) return { uid, role: 'client', brandId: uid };
+  const admin = await db.doc(`admins/${uid}`).get();
+  if (admin.exists && admin.data()?.active !== false) return { uid, role: 'admin' };
+  if (admin.exists) throw new AppError('permission-denied', 'Acesso desativado.');
+  const brand = await db.doc(`brands/${uid}`).get();
+  if (brand.exists && brand.data()?.accessEnabled !== false) return { uid, role: 'client', brandId: uid };
   throw new AppError('permission-denied', 'Perfil de acesso não encontrado.');
 }
 export function requireAdmin(actor: AuthenticatedActor) { if (actor.role !== 'admin') throw new AppError('permission-denied', 'Acesso administrativo necessário.'); return actor; }

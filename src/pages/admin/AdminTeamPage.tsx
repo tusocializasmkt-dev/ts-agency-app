@@ -1,3 +1,5 @@
+import { useModal } from '../../hooks/useModal';
+import { changeAccess } from '../../services/access.service';
 import { useState } from 'react';
 import { KeyRound, Plus } from 'lucide-react';
 import { useBrands, useFeedback, useTeamMembers } from '../../hooks';
@@ -10,10 +12,12 @@ export default function AdminTeamPage() {
   const { members, loading, error } = useTeamMembers();
   const { brands } = useBrands();
   const feedback = useFeedback();
+  const { confirm } = useModal();
   const [editing, setEditing] = useState<TeamMember | null | undefined>();
   const [reset, setReset] = useState<TeamMember | null>(null);
   const [processing, setProcessing] = useState(false);
   const save = async (data: TeamMemberForm) => {
+    if (editing && !await confirm({ title: 'Confirmar alterações de acesso?', description: 'As permissões e o status serão atualizados. Sessões anteriores serão revogadas.', confirmLabel: 'Confirmar' })) return;
     setProcessing(true);
     try {
       if (editing) await callUpdateTeamMember({ uid: editing.uid, ...data });
@@ -34,7 +38,7 @@ export default function AdminTeamPage() {
     <div className="max-w-full overflow-x-auto rounded-2xl border bg-white">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="bg-zinc-50 text-xs uppercase text-zinc-500"><tr><th className="p-4">Nome</th><th>E-mail</th><th>Função</th><th>Status</th><th>Clientes</th><th>Ações</th></tr></thead>
-        <tbody>{members.map(member => <tr key={member.id} className="border-t"><td className="p-4 font-bold">{member.displayName}</td><td>{member.email}</td><td>{member.role === 'manager' ? 'Gerente' : 'Social Media'}</td><td>{member.active ? 'Ativo' : 'Inativo'}</td><td>{member.brandIds.map(id => brands.find(b => b.id === id)?.name ?? id).join(', ') || 'Nenhum'}</td><td><button onClick={() => setEditing(member)} className="mr-3 min-h-11 font-bold underline">Editar</button><button aria-label={`Redefinir senha de ${member.displayName}`} onClick={() => setReset(member)} className="min-h-11 min-w-11"><KeyRound className="h-4 w-4" /></button></td></tr>)}</tbody>
+        <tbody>{members.map(member => <tr key={member.id} className="border-t"><td className="p-4 font-bold">{member.displayName}</td><td>{member.email}</td><td>{member.role === 'manager' ? 'Gerente' : 'Social Media'}</td><td>{member.active ? 'Ativo' : 'Inativo'}</td><td>{member.brandIds.map(id => brands.find(b => b.id === id)?.name ?? id).join(', ') || 'Nenhum'}</td><td><button onClick={() => setEditing(member)} className="mr-3 min-h-11 font-bold underline">Editar</button><button aria-label={`Redefinir senha de ${member.displayName}`} onClick={() => setReset(member)} className="min-h-11 min-w-11"><KeyRound className="h-4 w-4" /></button><button disabled={processing} className="min-h-11 px-3 text-red-600 underline" onClick={async () => { if (!await confirm({ title: 'Remover membro?', description: 'O login e as permissões serão removidos. Os dados das marcas serão preservados.', destructive: true })) return; setProcessing(true); try { await changeAccess({ kind: 'team', action: 'remove', uid: member.uid }); feedback.success('Acesso removido.'); } catch { feedback.error('Não foi possível remover o acesso.'); } finally { setProcessing(false); } }}>Remover acesso</button></td></tr>)}</tbody>
       </table>
     </div>
     {editing !== undefined && <TeamMemberDialog member={editing} brands={brands} processing={processing} onClose={() => setEditing(undefined)} onSave={save} />}

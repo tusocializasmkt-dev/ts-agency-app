@@ -21,6 +21,7 @@ const AdminSettingsPage = lazy(() => import('../../pages/admin/AdminSettingsPage
 const AdminMediaUploadPage = lazy(() => import('../../pages/admin/AdminMediaUploadPage'));
 const AdminMediaLibraryPage = lazy(() => import('../../pages/admin/AdminMediaLibraryPage'));
 const AdminNotificationsPage = lazy(() => import('../../pages/admin/AdminNotificationsPage'));
+const AdminAccessPage = lazy(() => import('../../pages/admin/AdminAccessPage'));
 const AdminTeamPage = lazy(() => import('../../pages/admin/AdminTeamPage'));
 const ClientHomePage = lazy(() => import('../../pages/client/ClientHomePage'));
 const ClientPostsPage = lazy(() => import('../../pages/client/ClientPostsPage'));
@@ -60,6 +61,7 @@ export default function AppRouter() {
             <Route path={ROUTES.admin.finance} element={routeElement(AdminFinancePage)} />
             <Route path={ROUTES.admin.trash} element={routeElement(AdminTrashPage)} />
             <Route path={ROUTES.admin.settings} element={routeElement(AdminSettingsPage)} />
+            <Route path={ROUTES.admin.access} element={routeElement(AdminAccessPage)} />
             <Route path={ROUTES.admin.team} element={routeElement(AdminTeamPage)} />
           </Route>
         </Route>

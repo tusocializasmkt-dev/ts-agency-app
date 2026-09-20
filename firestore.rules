@@ -9,11 +9,8 @@ service cloud.firestore {
     // --- Helpers ---
     function isSignedIn() { return request.auth != null; }
     function isAdmin() { 
-      // Hardcoded admin uid or check against a dedicated admins collection
-      // For this app, we'll assume a specific UID or role field in a users collection
-      // But user requested hardcoded login, which we will handle in client logic for session
-      // Security-wise, we need a reliable way. Let's use a simple isAdmin field or specific collection.
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('active', true) == true;
     }
 
     function teamProfile() {
@@ -32,7 +29,9 @@ service cloud.firestore {
     }
     
     function isOwner(brandId) {
-      return isSignedIn() && request.auth.uid == brandId;
+      return isSignedIn() && request.auth.uid == brandId
+        && exists(/databases/$(database)/documents/brands/$(brandId))
+        && get(/databases/$(database)/documents/brands/$(brandId)).data.get('accessEnabled', true) == true;
     }
 
     function isValidId(id) {
@@ -132,15 +131,16 @@ service cloud.firestore {
         && data.storagePath is string
         && data.storagePath.matches('^brands/' + data.brandId + '/media/[a-zA-Z0-9_-]+/[^/]+$')
         && data.status in ['pending', 'ready', 'failed', 'deleted']
-        && data.source == 'upload';
+        && data.source == 'upload'
+        && (!('teamVisible' in data) || data.teamVisible == (data.category != 'invoice'));
     }
 
     // --- Rules ---
 
     // Admins collection
     match /admins/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if false; // Only manually via console or initialization script
+      allow read: if isAdmin() || (isSignedIn() && request.auth.uid == userId);
+      allow write: if false; // Only trusted Admin SDK operations
     }
 
     match /team_members/{userId} {
@@ -155,15 +155,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /team_brands/{brandId} {
+      allow read: if isAdmin() || hasBrandAccess(brandId);
+      allow write: if false;
+    }
+    match /agency_public/{configId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // Agency Config
     match /agency_config/{configId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || isOwner(request.auth.uid);
       allow write: if isAdmin();
     }
 
     // Brands
     match /brands/{brandId} {
-      allow read: if isAdmin() || isOwner(brandId) || hasBrandAccess(brandId);
+      allow read: if isAdmin() || isOwner(brandId);
       allow write: if isAdmin();
       allow update: if (isOwner(brandId) || hasBrandAccess(brandId))
         && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'tradeName', 'segment', 'description', 'city', 'state', 'responsible', 'email', 'phone', 'whatsapp', 'website', 'socialLinks', 'brandColors', 'identityNotes', 'targetAudience', 'mainOffers', 'communicationTone', 'contentNotes', 'avoidedTerms', 'references', 'logoUrl']);
@@ -177,14 +186,14 @@ service cloud.firestore {
 
     // Posts
     match /posts/{postId} {
-      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || isOwner(existing().brandId);
       allow create: if (isAdmin() || hasBrandAccess(incoming().brandId)) && isValidPost(incoming());
       allow update: if ((isAdmin() || hasBrandAccess(existing().brandId)) && incoming().brandId == existing().brandId && isValidPost(incoming()))
-        || (isSignedIn() && existing().brandId == request.auth.uid && isValidClientDecision());
+        || (isOwner(existing().brandId) && isValidClientDecision());
       allow delete: if isAdmin() || hasBrandAccess(existing().brandId);
 
       match /history/{historyId} {
-        allow read: if isAdmin() || hasBrandAccess(get(/databases/$(database)/documents/posts/$(postId)).data.brandId) || (isSignedIn() && get(/databases/$(database)/documents/posts/$(postId)).data.brandId == request.auth.uid);
+        allow read: if isAdmin() || hasBrandAccess(get(/databases/$(database)/documents/posts/$(postId)).data.brandId) || isOwner(get(/databases/$(database)/documents/posts/$(postId)).data.brandId);
         allow create: if isSignedIn()
           && incoming().postId == postId
           && incoming().brandId == get(/databases/$(database)/documents/posts/$(postId)).data.brandId
@@ -195,30 +204,30 @@ service cloud.firestore {
           && isCoherentHistory(postId)
           && ((isAdmin() && incoming().actorRole == 'admin')
             || (hasBrandAccess(incoming().brandId) && incoming().actorRole in ['manager', 'social_media'])
-            || (incoming().brandId == request.auth.uid && incoming().actorRole == 'client' && incoming().action != 'resubmitted'));
+            || (isOwner(incoming().brandId) && incoming().actorRole == 'client' && incoming().action != 'resubmitted'));
         allow update, delete: if false;
       }
     }
 
     // Invoices
     match /invoices/{invoiceId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow read: if isAdmin() || isOwner(existing().brandId);
       allow create, update: if isAdmin() && isValidInvoice(incoming());
       allow delete: if false;
 
       match /history/{historyId} {
-        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/invoices/$(invoiceId)).data.brandId == request.auth.uid);
+        allow read: if isAdmin() || isOwner(get(/databases/$(database)/documents/invoices/$(invoiceId)).data.brandId);
         allow create: if isAdmin() && incoming().actorUid == request.auth.uid && incoming().actorRole == 'admin';
         allow update, delete: if false;
       }
     }
 
     match /payments/{paymentId} {
-      allow read: if isAdmin() || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow read: if isAdmin() || isOwner(existing().brandId);
       allow create, update, delete: if false;
 
       match /attempts/{attemptId} {
-        allow read: if isAdmin() || (isSignedIn() && get(/databases/$(database)/documents/payments/$(paymentId)).data.brandId == request.auth.uid);
+        allow read: if isAdmin() || isOwner(get(/databases/$(database)/documents/payments/$(paymentId)).data.brandId);
         allow create, update, delete: if false;
       }
 
@@ -251,24 +260,24 @@ service cloud.firestore {
 
     // Metrics
     match /metrics_organic/{metricId} {
-      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || isOwner(existing().brandId);
       allow create: if isAdmin() || hasBrandAccess(incoming().brandId);
       allow update, delete: if isAdmin() || hasBrandAccess(existing().brandId);
     }
     match /metrics_paid/{metricId} {
-      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
+      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || isOwner(existing().brandId);
       allow create: if isAdmin() || hasBrandAccess(incoming().brandId);
       allow update, delete: if isAdmin() || hasBrandAccess(existing().brandId);
     }
 
     // Media metadata. Ownership follows the existing media.brandId contract.
     match /media/{mediaId} {
-      allow read: if isAdmin() || hasBrandAccess(existing().brandId) || (isSignedIn() && existing().brandId == request.auth.uid);
-      allow create: if isValidMedia(incoming()) && (isAdmin() || hasBrandAccess(incoming().brandId));
+      allow read: if isAdmin() || (hasBrandAccess(existing().brandId) && existing().teamVisible == true) || isOwner(existing().brandId);
+      allow create: if isValidMedia(incoming()) && (isAdmin() || (hasBrandAccess(incoming().brandId) && incoming().category != 'invoice'));
       allow update: if isValidMedia(incoming())
         && incoming().brandId == existing().brandId
-        && (isAdmin() || hasBrandAccess(existing().brandId));
-      allow delete: if isAdmin() || hasBrandAccess(existing().brandId);
+        && (isAdmin() || (incoming().category != 'invoice' && hasBrandAccess(existing().brandId) && existing().category != 'invoice'));
+      allow delete: if isAdmin() || (hasBrandAccess(existing().brandId) && existing().category != 'invoice');
     }
 
     // Trash

@@ -1,3 +1,4 @@
+import { useAuth } from '../contexts/AuthContext';
 import React from 'react';
 import { Brand } from '../types';
 import { Users, Clock, AlertTriangle } from 'lucide-react';
@@ -8,8 +9,9 @@ interface DashboardCardsProps {
 }
 
 const DashboardCards: React.FC<DashboardCardsProps> = ({ brands }) => {
+  const { isAdmin } = useAuth();
   const { posts: pendingPosts } = usePosts({ status: 'pending' });
-  const { invoices: overdueInvoices } = useInvoices(null, 'overdue');
+  const { invoices: overdueInvoices } = useInvoices(null, 'overdue', isAdmin);
 
   const stats = [
     { label: 'Clientes Ativos', value: brands.filter(b => b.status === 'active').length, icon: Users, color: 'text-white' },
@@ -19,7 +21,7 @@ const DashboardCards: React.FC<DashboardCardsProps> = ({ brands }) => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {stats.map((stat) => (
+      {stats.filter(stat => isAdmin || stat.label !== 'Faturas em Atraso').map((stat) => (
         <div key={stat.label} className="group flex items-center justify-between rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-black sm:p-8">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-2">{stat.label}</p>

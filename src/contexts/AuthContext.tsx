@@ -1,6 +1,7 @@
+import { clearLastRoute } from '../app/router/last-route';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserRole } from '../types';
 
@@ -31,6 +32,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let authEvent = 0;
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       const event = ++authEvent;
+      setLoading(true);
+      setRole(null); setBrandId(null); setBrandIds([]);
       setUser(user);
       setAuthError(user ? null : pendingAccessError.current);
       if (!user) pendingAccessError.current = null;
@@ -38,6 +41,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (user) {
           const adminDoc = await getDoc(doc(db, 'admins', user.uid));
           if (!active || event !== authEvent) return;
+          if (adminDoc.exists() && adminDoc.data()?.active === false) {
+            pendingAccessError.current = 'Este acesso está desativado. Fale com a agência.';
+            clearLastRoute(user.uid); await signOut(auth); return;
+          }
           if (adminDoc.exists()) {
             setRole('admin');
             setBrandId(null);
@@ -91,6 +98,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => { active = false; authEvent += 1; unsubscribe(); };
   }, []);
+
+  useEffect(() => {
+    if (!user || !role) return;
+    let active = true;
+    const block = () => {
+      if (!active) return;
+      clearLastRoute(user.uid);
+      setRole(null); setBrandIds([]); setBrandId(null);
+      pendingAccessError.current = 'Este acesso foi desativado ou revogado. Fale com a agência.';
+      void signOut(auth);
+    };
+    const collection = role === 'admin' ? 'admins' : role === 'client' ? 'brands' : 'team_members';
+    const unsubscribe = onSnapshot(doc(db, collection, user.uid), snapshot => {
+      if (!active) return;
+      const data = snapshot.data();
+      if (!snapshot.exists() || (role === 'client' ? data?.accessEnabled === false : data?.active === false)) { block(); return; }
+      if (role === 'manager' || role === 'social_media') {
+        if (!['manager', 'social_media'].includes(data?.role)) { block(); return; }
+        setRole(data!.role);
+        setBrandIds(Array.isArray(data?.brandIds) ? data.brandIds.filter((id: unknown): id is string => typeof id === 'string') : []);
+      }
+    }, block);
+    const validate = () => {
+      if (document.visibilityState === 'hidden') return;
+      void user.getIdToken(true).catch(error => {
+        if (['auth/user-disabled', 'auth/user-token-expired', 'auth/invalid-user-token', 'auth/user-not-found'].includes(error?.code)) block();
+      });
+    };
+    window.addEventListener('focus', validate);
+    const timer = window.setInterval(validate, 60_000);
+    validate();
+    return () => { active = false; unsubscribe(); window.removeEventListener('focus', validate); window.clearInterval(timer); };
+  }, [user, role]);
 
   return (
     <AuthContext.Provider value={{

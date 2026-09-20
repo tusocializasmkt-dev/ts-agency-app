@@ -7,7 +7,7 @@ vi.mock('firebase/firestore', () => sdk);
 vi.mock('../lib/firebase', () => ({ db: {} }));
 vi.mock('../data/firebase', () => data);
 
-import { subscribeToBrands, updateBrand, updateClientEditableFields } from '../data/repositories/brands.repository';
+import { subscribeToBrands, getBrandById, updateBrand, updateClientEditableFields } from '../data/repositories/brands.repository';
 import { createPost, subscribeToPostsByBrand, updatePost, updatePostStatus } from '../data/repositories/posts.repository';
 import { subscribeToInvoicesByBrand } from '../data/repositories/invoices.repository';
 import { permanentlyDeleteTrashItem, restoreTrashItem } from '../data/repositories/trash.repository';
@@ -15,6 +15,13 @@ import { subscribeToAgencyConfig, updateAgencyConfig } from '../data/repositorie
 
 describe('repositories sem Firebase real', () => {
   beforeEach(() => { vi.clearAllMocks(); sdk.updateDoc.mockReset().mockResolvedValue(undefined); sdk.addDoc.mockReset().mockResolvedValue({ id: 'created' }); sdk.deleteDoc.mockReset().mockResolvedValue(undefined); });
+  it('equipe lê projeções operacionais em vez de documentos administrativos', async () => {
+    sdk.getDoc.mockResolvedValueOnce({ id: 'b', data: () => ({ name: 'Marca' }) });
+    await getBrandById('b', true);
+    subscribeToAgencyConfig(vi.fn(), vi.fn(), true);
+    expect(sdk.getDoc).toHaveBeenCalledWith('doc:team_brands/b');
+    expect(sdk.onSnapshot).toHaveBeenCalledWith('doc:agency_public/default', expect.any(Function), expect.any(Function));
+  });
   it('constrói coleções, filtros e retorna unsubscribe', () => {
     const unsubscribe = vi.fn(); data.subscribeToQuery.mockReturnValueOnce(unsubscribe);
     expect(subscribeToBrands(vi.fn(), vi.fn())).toBe(unsubscribe); subscribeToPostsByBrand('b', vi.fn(), vi.fn(), 'approved'); subscribeToInvoicesByBrand('b', vi.fn(), vi.fn(), 'pending');

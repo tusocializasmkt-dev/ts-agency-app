@@ -6,6 +6,12 @@ import { createMediaRecord, getMediaByIds, listMediaPage, markMediaDeleted, perm
 
 describe('media repository', () => {
   beforeEach(() => { vi.clearAllMocks(); sdk.setDoc.mockResolvedValue(undefined); sdk.updateDoc.mockResolvedValue(undefined); sdk.deleteDoc.mockResolvedValue(undefined); });
+  it('consulta da equipe exige classificação operacional e mantém o escopo das marcas', async () => {
+    sdk.getDocs.mockResolvedValue({ docs: [] });
+    await listMediaPage({ brandIds: ['b'], status: 'ready' });
+    expect(sdk.where).toHaveBeenCalledWith('teamVisible', '==', true);
+    expect(sdk.where).toHaveBeenCalledWith('brandId', 'in', ['b']);
+  });
   it('sempre consulta por brandId e retorna unsubscribe', () => { const unsubscribe = vi.fn(); helpers.subscribeToQuery.mockReturnValue(unsubscribe); expect(subscribeToMediaByBrand('b', vi.fn(), vi.fn())).toBe(unsubscribe); expect(sdk.where).toHaveBeenCalledWith('brandId', '==', 'b'); });
   it('cria sem persistir ID e atualiza metadados', async () => { await expect(createMediaRecord({ brandId: 'b', status: 'pending', ignored: undefined } as never, 'm')).resolves.toBe('m'); expect(sdk.setDoc).toHaveBeenCalledWith(expect.anything(), expect.not.objectContaining({ id: expect.anything(), ignored: expect.anything() })); await updateMediaMetadata('b', 'm', { status: 'ready' }); expect(sdk.updateDoc).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ brandId: 'b', status: 'ready' })); });
   it('faz delete lógico, restore e delete permanente protegido por marca', async () => { await markMediaDeleted('b', 'm'); await restoreMedia('b', 'm'); sdk.getDoc.mockResolvedValue({ exists: () => true, id: 'm', data: () => ({ brandId: 'b', storagePath: 'x' }) }); await permanentlyDeleteMediaRecord('b', 'm'); expect(sdk.deleteDoc).toHaveBeenCalled(); });

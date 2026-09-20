@@ -1,12 +1,9 @@
+import AccessPanel from '../auth/AccessPanel';
 import React, { useState, useEffect, useRef } from 'react';
 import { Brand } from '../../types';
-import { Save, Link2, Building, Key, Upload } from 'lucide-react';
+import { Save, Link2, Building, Upload } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useBrands, useFeedback } from '../../hooks';
-import { callCreateClientAccess, callResetClientPassword, callSetClientAccessStatus } from '../../data/functions';
-import PasswordDialog from '../auth/PasswordDialog';
-import AccessConfirmationDialog, { type TemporaryAccess } from './AccessConfirmationDialog';
-import { APP_URL } from '../../config/app';
 import { BRAND_STATUSES, BRAND_STATUS_LABELS, getBrandStatusBadgeClass, getBrandStatusRingClass } from '../../brands/brand-status';
 import { createStorageReference, getFileDownloadUrl, uploadFile } from '../../data/repositories';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,9 +17,6 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
   const { brand, loading, error, update, updateClientProfile } = useBrands(brandId);
   const { isAdmin } = useAuth();
   const feedback = useFeedback();
-  const [passwordMode, setPasswordMode] = useState<'create' | 'reset' | null>(null);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [temporaryAccess, setTemporaryAccess] = useState<TemporaryAccess | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const logoInput = useRef<HTMLInputElement>(null);
@@ -35,7 +29,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
 
   const handleSave = async () => {
     try {
-      if (isAdmin) await update(brandId, data);
+      if (isAdmin) { const { accessEnabled, login, ...businessData } = data; await update(brandId, businessData); }
       else await updateClientProfile(brandId, data);
       feedback.success('Cliente atualizado!');
     } catch (e) { feedback.error('Erro ao atualizar'); }
@@ -55,7 +49,7 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
       const reference = createStorageReference(`brands/${brandId}/media/logos/logo-${Date.now()}.${extension}`);
       const uploaded = await uploadFile(reference, file).completion;
       const logoUrl = await getFileDownloadUrl(uploaded);
-      await update(brandId, { logoUrl });
+      if (isAdmin) await update(brandId, { logoUrl }); else await updateClientProfile(brandId, { logoUrl });
       setData(current => ({ ...current, logoUrl }));
       setLogoPreview(null);
       feedback.success('Logotipo atualizado!');
@@ -146,30 +140,10 @@ const BrandDetail: React.FC<BrandDetailProps> = ({ brandId }) => {
               </div>
            </div>
 
-           {isAdmin && <div className="space-y-8 rounded-[2rem] border border-black bg-black p-5 text-white shadow-2xl sm:rounded-[2.5rem] sm:p-10">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-zinc-500 mb-6 flex items-center gap-2">
-                <Key className="w-4 h-4" /> Acesso do Cliente
-              </h3>
-              <div className="space-y-4">
-                <p className="text-[11px] text-zinc-500 italic leading-relaxed">Este cliente acessa a plataforma usando as credenciais abaixo.</p>
-                <div className="p-4 bg-zinc-900 border border-white/5 rounded-2xl space-y-2">
-                   <div className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                     <span>Login</span>
-                     <span className="break-all text-white">{data.email}</span>
-                   </div>
-                   <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-zinc-500">
-                     <span>Status</span>
-                     <span className="text-white uppercase">{data.accessEnabled ? 'ativo' : 'não criado ou inativo'}</span>
-                   </div>
-                </div>
-                <button onClick={() => setPasswordMode(data.accessEnabled === undefined ? 'create' : 'reset')} className="w-full bg-white text-black py-4 rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-zinc-200 transition-all shadow-lg">{data.accessEnabled === undefined ? 'Criar acesso' : 'Redefinir senha'}</button>
-                {data.accessEnabled !== undefined && <button onClick={async () => { const active = !data.accessEnabled; await callSetClientAccessStatus(brandId, active); setData(current => ({ ...current, accessEnabled: active })); feedback.success(active ? 'Acesso reativado.' : 'Acesso suspenso.'); }} className="w-full border border-zinc-700 py-4 text-xs font-bold uppercase tracking-widest">{data.accessEnabled ? 'Suspender acesso' : 'Reativar acesso'}</button>}
-              </div>
-           </div>}
+           {isAdmin && <AccessPanel key={brandId} kind="client" uid={brandId} />}
         </div>
       </div>
-      {passwordMode && <PasswordDialog title={passwordMode === 'create' ? 'Criar acesso do cliente' : 'Redefinir senha do cliente'} processing={savingPassword} onClose={() => setPasswordMode(null)} onConfirm={async password => { if (!data.email) throw new Error('email-required'); setSavingPassword(true); try { if (passwordMode === 'create') { await callCreateClientAccess({ brandId, email: data.email, password, active: true }); setData(current => ({ ...current, accessEnabled: true })); } else { await callResetClientPassword(brandId, password); } feedback.success(passwordMode === 'create' ? 'Acesso do cliente criado.' : 'Senha do cliente redefinida.'); setTemporaryAccess({ name: data.name || 'Cliente', email: data.email, password, portalUrl: APP_URL }); setPasswordMode(null); } finally { setSavingPassword(false); } }} />}
-      {temporaryAccess && <AccessConfirmationDialog access={temporaryAccess} onClose={() => setTemporaryAccess(null)} />}
+
     </div>
   );
 };

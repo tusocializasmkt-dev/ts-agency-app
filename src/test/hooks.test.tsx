@@ -23,6 +23,12 @@ vi.mock('../services', () => services);
 
 describe('hooks de dados', () => {
   beforeEach(() => { vi.clearAllMocks(); Object.values(services).forEach(mock => mock.mockResolvedValue?.(undefined)); });
+  it('não consulta faturas quando a área financeira está desabilitada para o perfil', () => {
+    const { result } = renderHook(() => useInvoices(null, 'overdue', false));
+    expect(result.current.loading).toBe(false);
+    expect(services.watchInvoices).not.toHaveBeenCalled();
+    expect(services.watchBrandInvoices).not.toHaveBeenCalled();
+  });
   it('useBrands recebe dados, limpa subscription, executa comando e erro/reset', async () => {
     const unsubscribe = vi.fn(); services.watchBrands.mockImplementation((data) => { data([{ id: 'b' }]); return unsubscribe; });
     const { result, unmount } = renderHook(() => useBrands()); await waitFor(() => expect(result.current.loading).toBe(false)); expect(result.current.brands).toHaveLength(1); await act(() => result.current.update('b', {})); expect(services.saveBrand).toHaveBeenCalled(); unmount(); expect(unsubscribe).toHaveBeenCalled();

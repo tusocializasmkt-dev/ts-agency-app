@@ -3,7 +3,7 @@ export interface TeamMemberInput { uid?: string; displayName: string; email: str
 export interface TeamAccessDependencies {
   brandExists(id: string): Promise<boolean>;
   createUser(data: { email: string; password: string; displayName: string; disabled: boolean }): Promise<{ uid: string }>;
-  updateUser(uid: string, data: { displayName?: string; disabled?: boolean; password?: string }): Promise<void>;
+  updateUser(uid: string, data: { email?: string; displayName?: string; disabled?: boolean; password?: string }): Promise<void>;
   deleteUser(uid: string): Promise<void>;
   revokeTokens(uid: string): Promise<void>;
   setClaims(uid: string, claims: Record<string, unknown>): Promise<void>;
@@ -28,7 +28,7 @@ export async function createTeamMember(input: TeamMemberInput, createdBy: string
 }
 export async function updateTeamMember(input: TeamMemberInput, deps: TeamAccessDependencies) {
   if (!input.uid) throw new Error('invalid-team-data'); const data = validateTeamInput(input, false); await assertBrands(data.brandIds, deps);
-  await deps.updateUser(input.uid, { displayName: data.displayName, disabled: !data.active });
+  await deps.updateUser(input.uid, { email: data.email, displayName: data.displayName, disabled: !data.active });
   await deps.setClaims(input.uid, claims(data));
   await deps.updateMember(input.uid, { displayName: data.displayName, email: data.email, role: data.role, active: data.active, brandIds: data.brandIds });
   await deps.revokeTokens(input.uid); return { uid: input.uid };
