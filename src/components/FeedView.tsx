@@ -71,7 +71,7 @@ const FeedView: React.FC<FeedViewProps> = ({ selectedBrandId, isAdmin, onBrandCh
 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"><AnimatePresence>
       {visiblePosts.map((post) => <motion.div key={post.id} layout initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-white rounded-3xl border border-zinc-200 overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow">
-        <div className="relative aspect-square bg-[#F5F5F5]">
+        <div className="relative bg-[#F5F5F5]">
           <PostMediaCarousel post={post} />
           <div className="absolute top-4 left-4 flex gap-2">
             <span className={cn('px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border', post.status === 'approved' ? 'bg-green-50 text-green-600 border-green-100' : post.status === 'rejected' ? 'bg-red-50 text-red-600 border-red-100' : post.status === 'scheduled' ? 'bg-zinc-50 text-zinc-600 border-zinc-100' : 'bg-orange-50 text-orange-600 border-orange-100')}>{statusLabels[post.status]}</span>
@@ -81,7 +81,7 @@ const FeedView: React.FC<FeedViewProps> = ({ selectedBrandId, isAdmin, onBrandCh
         </div>
         <div className="p-6 flex-1 flex flex-col space-y-4">
           <div className="flex justify-between items-start"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{new Date(post.scheduledDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{post.socialNetwork}</span></div>
-          <p className="text-sm line-clamp-3 text-zinc-600 leading-relaxed font-medium">{post.caption}</p>
+          <p className="whitespace-pre-wrap break-words text-sm line-clamp-3 text-zinc-600 leading-relaxed font-medium">{post.caption}</p>
           {(post.status === 'rejected' || post.status === 'changes_requested') && post.feedback && <div className={cn('p-3 rounded-xl text-[11px] leading-snug border', post.status === 'rejected' ? 'bg-red-50 border-red-100 text-red-600' : 'bg-orange-50 border-orange-100 text-orange-700')}><strong className="uppercase tracking-tighter mr-1">Observação:</strong>{post.feedback}</div>}
           {post.status === 'pending' && <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-4 sm:flex-nowrap">
             <button onClick={() => handleStatusChange(post.id, 'approved')} disabled={processingPostId !== null} className="flex-1 bg-green-50 text-green-600 hover:bg-green-600 font-bold py-2.5 rounded-xl hover:text-white transition-all flex items-center justify-center gap-2 text-xs border border-green-100 disabled:opacity-50"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>

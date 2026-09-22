@@ -14,4 +14,13 @@ describe('PostMediaCarousel', () => {
   it('navega no carrossel a partir da capa sem mudar ordem', () => { hook.usePostMedia.mockReturnValue({ media: [{ id: 'a', url: 'https://example.test/a', mediaType: 'image', name: 'A', missing: false }, { id: 'b', url: 'https://example.test/b', mediaType: 'image', name: 'B', missing: false }], coverIndex: 1, loading: false }); renderCarousel(); expect(screen.getByText('2 / 2')).toBeInTheDocument(); fireEvent.click(screen.getByRole('button', { name: 'Mídia anterior' })); expect(screen.getByText('1 / 2')).toBeInTheDocument(); });
   it('mostra mídia ausente sem quebrar', () => { hook.usePostMedia.mockReturnValue({ media: [{ id: 'missing', name: 'Mídia indisponível', missing: true }], coverIndex: 0, loading: false }); renderCarousel(); expect(screen.getByRole('status')).toHaveTextContent('Mídia indisponível'); });
   it('preserva fallback legado resolvido pelo hook', () => { hook.usePostMedia.mockReturnValue({ media: [{ id: 'legacy', url: 'https://example.test/old', mediaType: 'image', name: 'Mídia do post 1', missing: false, legacy: true }], coverIndex: 0, loading: false }); renderCarousel(); expect(screen.getByAltText('Mídia do post 1')).toBeInTheDocument(); });
+  it('abre visualização ampliada ao tocar a imagem e fecha pelo botão', async () => {
+    hook.usePostMedia.mockReturnValue({ media: [{ id: 'a', url: 'https://example.test/a', mediaType: 'image', name: 'Imagem inteira', missing: false }], coverIndex: 0, loading: false });
+    renderCarousel();
+    expect(screen.getByAltText('Imagem inteira')).toHaveClass('object-contain', 'h-auto', 'max-h-[65vh]');
+    fireEvent.click(screen.getByRole('button', { name: 'Ampliar publicação' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Fechar diálogo'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
 });

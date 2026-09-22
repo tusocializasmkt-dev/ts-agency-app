@@ -1,0 +1,20 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { expect, it, vi } from 'vitest';
+import PostViewer from '../components/media/PostViewer';
+const post = { caption: 'Legenda completa\nSegunda linha com todos os detalhes', socialNetwork: 'instagram', scheduledDate: '2026-09-20' } as any;
+const media = [{ id: 'i', mediaType: 'image' as const, name: 'Arte', url: 'https://example.test/a.png', missing: false, legacy: false }, { id: 'v', mediaType: 'video' as const, name: 'Vídeo', url: 'https://example.test/a.mp4', missing: false, legacy: false }];
+it('imagem completa, zoom, reset, legenda, vídeo e Escape', () => {
+  const close = vi.fn(); const view = render(<PostViewer post={post} media={media} initialIndex={0} onClose={close} />);
+  expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
+  expect(document.body.style.overflow).toBe('hidden');
+  expect(screen.getByText(/Legenda completa/)).toHaveTextContent('Segunda linha com todos os detalhes');
+  expect(screen.getByAltText('Arte')).toHaveClass('object-contain');
+  fireEvent.click(screen.getByText('Ampliar imagem')); expect(screen.getByText('150%')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Tamanho normal')); expect(screen.getByText('100%')).toBeInTheDocument();
+  fireEvent.click(screen.getByText('Próxima mídia')); expect(screen.getByLabelText('Vídeo')).toHaveAttribute('controls');
+  expect(screen.getByLabelText('Vídeo')).toHaveAttribute('playsinline');
+  expect(screen.queryByText('Ampliar imagem')).not.toBeInTheDocument();
+  fireEvent.keyDown(document, { key: 'Escape' }); expect(close).toHaveBeenCalledOnce();
+  fireEvent.click(screen.getByLabelText('Fechar diálogo')); expect(close).toHaveBeenCalledTimes(2);
+  view.unmount(); expect(document.body.style.overflow).not.toBe('hidden');
+});

@@ -8,9 +8,10 @@ import { BRAND_STATUS_LABELS, getBrandStatusBadgeClass, getBrandStatusRingClass,
 interface ClientListProps {
   brands: Brand[];
   onSelectBrand: (id: string) => void;
+  onManageBrand?: (id: string) => void;
 }
 
-const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
+const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand, onManageBrand }) => {
   return (
     <div className="grid grid-cols-1 gap-4">
       {brands.map((brand) => (
@@ -19,6 +20,8 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={() => onSelectBrand(brand.id)}
+          role="link" tabIndex={0} aria-label={`Abrir Feed de ${brand.name}`}
+          onKeyDown={event => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); onSelectBrand(brand.id); } }}
           className="group flex cursor-pointer flex-col gap-5 rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm transition-all hover:border-black sm:flex-row sm:items-center sm:justify-between sm:p-8"
         >
           <div className="flex min-w-0 items-center gap-5 sm:gap-8">
@@ -49,6 +52,7 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand }) => {
               )}>
                 {BRAND_STATUS_LABELS[normalizeBrandStatus(brand.status)]}
               </div>
+              {onManageBrand && <button type="button" onClick={event => { event.stopPropagation(); onManageBrand(brand.id); }} className="min-h-11 rounded-xl border px-3 text-sm font-bold">Informações</button>}
               <div className="p-3 rounded-full bg-zinc-50 text-zinc-300 group-hover:bg-black group-hover:text-white transition-all">
                 <ArrowRight className="w-6 h-6" />
               </div>
