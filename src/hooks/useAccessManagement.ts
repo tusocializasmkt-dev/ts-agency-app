@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { changeAccess, listAdministrators, loadAccess } from '../services/access.service';
 import type { AccessCommand, AccessKind, AccessProfile } from '../data/functions/access.functions';
 import { useAuth } from '../contexts/AuthContext';
+import { accessErrorMessage } from '../services/access-error';
 
 export function useAccessManagement(kind: AccessKind, uid?: string) {
   const { isAdmin } = useAuth();
@@ -16,7 +17,7 @@ export function useAccessManagement(kind: AccessKind, uid?: string) {
     setLoading(true);
     setError('');
     try { const data = uid ? [await loadAccess(kind, uid)] : await listAdministrators(); if (current === request.current) setProfiles(data); }
-    catch { if (current === request.current) setError('Não foi possível consultar os acessos. Tente novamente.'); }
+    catch (cause) { if (current === request.current) setError(accessErrorMessage(cause)); }
     finally { if (current === request.current) setLoading(false); }
   }, [kind, uid, isAdmin]);
   useEffect(() => { setProfiles([]); void refresh(); return () => { request.current++; }; }, [refresh]);

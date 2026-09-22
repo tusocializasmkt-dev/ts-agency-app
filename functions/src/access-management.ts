@@ -26,7 +26,7 @@ export async function manageAccess(actor: string, command: AccessCommand, deps: 
   if (action === 'create' || action === 'update') {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !displayName || displayName.length > 100) throw new Error('invalid-access-command');
   }
-  if (action === 'create' || action === 'password') if (typeof command.password !== 'string' || command.password.length < 10 || command.password.length > 128) throw new Error('invalid-access-command');
+  if (action === 'create' || action === 'password') if (typeof command.password !== 'string' || command.password.length < 10 || command.password.length > 128) throw new Error('invalid-access-password');
   if (action === 'create') {
     if (kind !== 'admin') throw new Error('invalid-access-command');
     return { uid: await deps.createAdmin(email!, displayName!, command.password!) };

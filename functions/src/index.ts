@@ -1,4 +1,5 @@
 import { manageAccess, type AccessCommand, type AccessKind, type AccessManagementDependencies, type AccessProfile } from './access-management.js';
+import { mapAccessError } from './access-errors.js';
 import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
@@ -253,6 +254,8 @@ export const resetTeamMemberPassword = onCall({ region: 'southamerica-east1', co
 const safeText = (value: unknown, max = 1_000) => typeof value === 'string' ? value.trim().slice(0, max) || undefined : undefined;
 
 export const manageUserAccess = onCall({ region: 'southamerica-east1', cors: true }, async request => {
+  // Browser preflight reaches the callable; administrative operations still require Firebase Auth.
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Entre novamente para administrar acessos.');
   await requireAdmin(request.auth?.uid, request.auth?.token.auth_time);
   const { auth, db, FieldValue } = await getAdminServices();
   const collectionFor = (kind: AccessKind) => kind === 'admin' ? 'admins' : kind === 'team' ? 'team_members' : 'brands';
@@ -305,15 +308,9 @@ export const manageUserAccess = onCall({ region: 'southamerica-east1', cors: tru
   };
   try { return await manageAccess(request.auth!.uid, request.data as AccessCommand, deps); }
   catch (error) {
-    if (error instanceof HttpsError) throw error;
-    const code = (error as { code?: string }).code;
-    const message = error instanceof Error ? error.message : '';
-    if (['self-access-removal', 'last-active-admin'].includes(message)) throw new HttpsError('failed-precondition', 'Não é permitido remover ou desativar o próprio acesso ou o último administrador ativo.');
-    if (code === 'auth/email-already-exists') throw new HttpsError('already-exists', 'Este e-mail já possui uma conta.');
-    if (message === 'access-not-found') throw new HttpsError('not-found', 'Acesso não encontrado.');
-    if (message === 'invalid-access-command') throw new HttpsError('invalid-argument', 'Confira os dados. A nova senha precisa ter entre 10 e 128 caracteres.');
-    logger.error('manage_access_failed', { code: code ?? 'unknown' });
-    throw new HttpsError('internal', 'Não foi possível concluir. Confira o estado do acesso antes de tentar novamente.');
+    const mapped = mapAccessError(error);
+    if (mapped.code === 'internal') logger.error('manage_access_failed', { code: 'internal' });
+    throw mapped;
   }
 });
 
