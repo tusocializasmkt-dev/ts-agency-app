@@ -2,13 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Save, Upload, Instagram, Facebook, Linkedin, Twitter } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAgencyConfig, useFeedback } from '../../hooks';
-import { createStorageReference, getFileDownloadUrl, uploadFile } from '../../data/repositories';
+import { AgencyLogoError, agencyLogoErrorMessage } from '../../services/agency-logo.service';
 
 const allowedLogoTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const maxLogoSize = 5 * 1024 * 1024;
 
 export default function AgencySettings() {
-  const { config, setConfig, loading, save } = useAgencyConfig(); const feedback = useFeedback();
+  const { config, setConfig, loading, save, changeLogo } = useAgencyConfig(); const feedback = useFeedback();
   const [uploading, setUploading] = useState(false); const [preview, setPreview] = useState<string | null>(null); const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const handleSave = async () => { try { await save(config); feedback.success('Configurações salvas!'); } catch { feedback.error('Erro ao salvar'); } };
@@ -18,11 +18,12 @@ export default function AgencySettings() {
     if (file.size > maxLogoSize) { feedback.error('O logotipo deve ter no máximo 5 MB.'); return; }
     const localPreview = URL.createObjectURL(file); setPreview(localPreview); setUploading(true);
     try {
-      const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-      const reference = createStorageReference(`agency/logo/logo-${Date.now()}.${extension}`);
-      const uploaded = await uploadFile(reference, file).completion; const logoUrl = await getFileDownloadUrl(uploaded);
-      const next = { ...config, logoUrl }; await save(next); setConfig(next); setPreview(null); feedback.success('Logotipo da agência atualizado!');
-    } catch { setPreview(null); feedback.error('Não foi possível enviar o logotipo. O anterior foi mantido.'); }
+      await changeLogo(file); setPreview(null); feedback.success('Logotipo da agência atualizado!');
+    } catch (error) {
+      setPreview(null);
+      if (error instanceof AgencyLogoError) console.error('agency_logo_failed', { stage: error.stage, code: error.code, cleanup: error.cleanup });
+      feedback.error(agencyLogoErrorMessage(error));
+    }
     finally { setUploading(false); if (inputRef.current) inputRef.current.value = ''; }
   };
   if (loading) return <div className="p-20 text-center text-zinc-400">Carregando...</div>;

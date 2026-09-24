@@ -20,7 +20,7 @@ describe('repositories sem Firebase real', () => {
     await getBrandById('b', true);
     subscribeToAgencyConfig(vi.fn(), vi.fn(), true);
     expect(sdk.getDoc).toHaveBeenCalledWith('doc:team_brands/b');
-    expect(sdk.onSnapshot).toHaveBeenCalledWith('doc:agency_public/default', expect.any(Function), expect.any(Function));
+    expect(sdk.onSnapshot).toHaveBeenCalledWith('doc:agency_public/default', { includeMetadataChanges: true }, expect.any(Function), expect.any(Function));
   });
   it('constrói coleções, filtros e retorna unsubscribe', () => {
     const unsubscribe = vi.fn(); data.subscribeToQuery.mockReturnValueOnce(unsubscribe);

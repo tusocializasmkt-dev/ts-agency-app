@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Post } from '../../types';
 import type { PostDisplayMedia } from '../../hooks/usePostMedia';
 import GlobalModal from '../ui/GlobalModal';
+import CopyCaptionButton from '../posts/CopyCaptionButton';
 
 export default function PostViewer({ post, media, initialIndex, onClose }: { post: Post; media: PostDisplayMedia[]; initialIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(initialIndex);
@@ -22,6 +23,7 @@ export default function PostViewer({ post, media, initialIndex, onClose }: { pos
       </div>
       <p className="text-sm text-zinc-500">{post.socialNetwork} · {post.scheduledDate && new Date(post.scheduledDate).toLocaleDateString('pt-BR')}</p>
       <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-700">{post.caption}</p>
+      <CopyCaptionButton caption={post.caption} />
     </div>
   </GlobalModal>;
 }

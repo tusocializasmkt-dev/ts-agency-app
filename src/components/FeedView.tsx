@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ThumbsUp, ThumbsDown, MessageSquare, Plus, Edit2 } from 'lucide-react';
 import { Post } from '../types';
 import PostModal from './Admin/PostModal';
+import CopyCaptionButton from './posts/CopyCaptionButton';
 import { cn } from '../lib/utils';
 import { useBrands, useFeedback, usePosts } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,6 +83,7 @@ const FeedView: React.FC<FeedViewProps> = ({ selectedBrandId, isAdmin, onBrandCh
         <div className="p-6 flex-1 flex flex-col space-y-4">
           <div className="flex justify-between items-start"><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{new Date(post.scheduledDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' })}</span><span className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest">{post.socialNetwork}</span></div>
           <p className="whitespace-pre-wrap break-words text-sm line-clamp-3 text-zinc-600 leading-relaxed font-medium">{post.caption}</p>
+          <CopyCaptionButton caption={post.caption} />
           {(post.status === 'rejected' || post.status === 'changes_requested') && post.feedback && <div className={cn('p-3 rounded-xl text-[11px] leading-snug border', post.status === 'rejected' ? 'bg-red-50 border-red-100 text-red-600' : 'bg-orange-50 border-orange-100 text-orange-700')}><strong className="uppercase tracking-tighter mr-1">Observação:</strong>{post.feedback}</div>}
           {post.status === 'pending' && <div className="flex flex-wrap gap-2 border-t border-zinc-100 pt-4 sm:flex-nowrap">
             <button onClick={() => handleStatusChange(post.id, 'approved')} disabled={processingPostId !== null} className="flex-1 bg-green-50 text-green-600 hover:bg-green-600 font-bold py-2.5 rounded-xl hover:text-white transition-all flex items-center justify-center gap-2 text-xs border border-green-100 disabled:opacity-50"><ThumbsUp className="w-3.5 h-3.5" /> Aprovar</button>
