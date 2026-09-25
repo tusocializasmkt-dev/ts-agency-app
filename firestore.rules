@@ -115,7 +115,7 @@ service cloud.firestore {
       return data.brandId is string
         && (data.amount is number || data.amount is int)
         && data.dueDate is string
-        && data.status in ['pending', 'overdue', 'paid', 'suspended', 'cancelled'];
+        && data.status in ['pending', 'overdue', 'payment_reported', 'paid', 'suspended', 'cancelled'];
     }
 
     function isValidMedia(data) {

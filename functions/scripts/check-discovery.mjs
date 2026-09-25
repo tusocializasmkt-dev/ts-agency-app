@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const functionsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(resolve(functionsDir, 'package.json'));
 const sdkBin = resolve(dirname(require.resolve('firebase-functions/v2/https')), '../../bin/firebase-functions.js');
-const expected = ['syncOperationalBrand', 'syncPublicAgency', 'syncBrandShowcase', 'internalLogin', 'setInternalCredential', 'createClientAccess', 'createClientWithAccess', 'resetClientPassword', 'setClientAccessStatus', 'createTeamMember', 'updateTeamMember', 'resetTeamMemberPassword', 'manageUserAccess', 'marketingAssistant'];
+const expected = ['reportInvoicePayment', 'confirmInvoicePayment', 'sendInvoiceReminders', 'syncOperationalBrand', 'syncPublicAgency', 'syncBrandShowcase', 'internalLogin', 'setInternalCredential', 'createClientAccess', 'createClientWithAccess', 'resetClientPassword', 'setClientAccessStatus', 'createTeamMember', 'updateTeamMember', 'resetTeamMemberPassword', 'manageUserAccess', 'marketingAssistant'];
 const probe = createServer();
 await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
 const { port } = probe.address();

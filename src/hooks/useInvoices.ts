@@ -14,6 +14,7 @@ export function useInvoices(brandOrOptions?: string | null | Options, legacyStat
     create: (data: Parameters<typeof service.createInvoice>[0]) => run(() => service.createInvoice(data, actor), 'Não foi possível criar a fatura.'),
     createRecurring: (data: Parameters<typeof service.createRecurringInvoices>[0]) => run(() => service.createRecurringInvoices(data, actor), 'Não foi possível criar a série de cobranças.'),
     edit: (id: string, data: Partial<Invoice>) => run(() => service.editInvoice(id, data, actor), 'Não foi possível editar a fatura.'),
+    reportPayment: (id: string) => run(() => service.reportPayment(id, actor), 'Não foi possível informar o pagamento. Tente novamente ou fale com a agência.'),
     markPaid: (id: string) => run(() => service.markPaid(id, actor), 'Não foi possível marcar como paga.'),
     suspend: (id: string) => run(() => service.suspendInvoice(id, actor), 'Não foi possível suspender.'),
     resume: (id: string) => run(() => service.resumeInvoice(id, actor), 'Não foi possível retomar.'),

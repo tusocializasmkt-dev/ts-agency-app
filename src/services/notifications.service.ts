@@ -1,4 +1,4 @@
-import type { Notification, NotificationType } from '../types';
+import type { Notification } from '../types';
 import { createNotification, listAdminUids, markAllNotificationsAsRead, markNotificationAsRead, subscribeToNotifications, subscribeToUnreadCount } from '../data/repositories';
 import { isAllowedNotificationRoute, NOTIFICATION_MESSAGE_MAX_LENGTH, NOTIFICATION_TITLE_MAX_LENGTH } from '../notifications';
 
@@ -7,7 +7,7 @@ export const watchUnreadNotificationCount = subscribeToUnreadCount;
 export const markAsRead = markNotificationAsRead;
 export const markAllAsRead = markAllNotificationsAsRead;
 type Template = Pick<Notification, 'title' | 'message' | 'link'>;
-const templates: Record<Exclude<NotificationType, 'manual'>, Template> = {
+const templates = {
   post_created: { title: 'Novo conteúdo para aprovação', message: 'Um novo conteúdo está aguardando sua aprovação.', link: '/cliente/posts' },
   post_approved: { title: 'Conteúdo aprovado', message: 'O cliente aprovou um conteúdo.', link: '/admin/posts' },
   post_rejected: { title: 'Conteúdo reprovado', message: 'O cliente reprovou um conteúdo e enviou um feedback.', link: '/admin/posts' },
@@ -18,8 +18,8 @@ const templates: Record<Exclude<NotificationType, 'manual'>, Template> = {
   payment_promise_requested: { title: 'Promessa de pagamento solicitada', message: 'Um cliente enviou uma promessa de pagamento.', link: '/admin/financeiro' },
   payment_promise_approved: { title: 'Promessa aprovada', message: 'Sua promessa de pagamento foi aprovada.', link: '/cliente/financeiro' },
   payment_promise_rejected: { title: 'Promessa não aprovada', message: 'Sua promessa de pagamento foi analisada. Consulte a fatura.', link: '/cliente/financeiro' },
-};
-async function notify(recipientUid: string, brandId: string, entityId: string, type: Exclude<NotificationType, 'manual'>, entityType: 'post' | 'invoice' = 'post') { return createNotification({ recipientUid, brandId, type, ...templates[type], entityType, entityId, source: 'system' }); }
+} satisfies Record<string, Template>;
+async function notify(recipientUid: string, brandId: string, entityId: string, type: keyof typeof templates, entityType: 'post' | 'invoice' = 'post') { return createNotification({ recipientUid, brandId, type, ...templates[type], entityType, entityId, source: 'system' }); }
 async function notifyAdmins(brandId: string, postId: string, type: 'post_approved' | 'post_rejected' | 'post_changes_requested') { const uids = await listAdminUids(); await Promise.all(uids.map(uid => notify(uid, brandId, postId, type))); }
 export const notifyPostCreated = (brandId: string, postId: string) => notify(brandId, brandId, postId, 'post_created');
 export const notifyPostApproved = (brandId: string, postId: string) => notifyAdmins(brandId, postId, 'post_approved');

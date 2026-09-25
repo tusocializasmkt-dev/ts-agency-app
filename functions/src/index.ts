@@ -3,6 +3,7 @@ import { mapAccessError } from './access-errors.js';
 import { createHash } from 'node:crypto';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
 import { authenticateInternal, hashPassword, normalizeEmail, type InternalCredential, type InternalRole } from './internal-auth.js';
 import { assertAdminAccess, createClientAccess as createAccess, createClientWithAccess as createWithAccess, resetClientPassword as resetPassword, setClientAccessStatus as setAccessStatus, type ClientAccessDependencies } from './user-access.js';
@@ -12,6 +13,27 @@ import { synchronizeBrandShowcase } from './brand-showcase.js';
 import { operationalBrand, publicAgency } from './operational-projection.js';
 
 const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58';
+// Public transport is required by browser callables; Firebase Auth and profile authorization
+// are enforced in the handler. No banking secrets or SDK initialization during discovery.
+export const reportInvoicePayment = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true }, async request => {
+  const { db, auth } = await getAdminServices();
+  const billing = await import('./invoice-billing.js');
+  const actor = await billing.authenticatedBillingActor(auth, request.auth);
+  return billing.reportPayment(db, actor, billing.invoiceIdFrom(request.data));
+});
+export const confirmInvoicePayment = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true }, async request => {
+  const { db, auth } = await getAdminServices();
+  const billing = await import('./invoice-billing.js');
+  const actor = await billing.authenticatedBillingActor(auth, request.auth);
+  return billing.confirmPayment(db, actor, billing.invoiceIdFrom(request.data));
+});
+export const sendInvoiceReminders = onSchedule({ region: 'southamerica-east1', schedule: '0 9 * * *', timeZone: 'America/Sao_Paulo', retryCount: 3, timeoutSeconds: 540 }, async event => {
+  const { db } = await getAdminServices();
+  const { runInvoiceReminders } = await import('./invoice-billing.js');
+  const sent = await runInvoiceReminders(db, new Date(event.scheduleTime));
+  logger.info('invoice_reminders_complete', { sent });
+});
+
 export const syncOperationalBrand = onDocumentWritten({ document: 'brands/{brandId}', database: databaseId, region: 'southamerica-east1' }, async event => {
   const { db } = await getAdminServices();
   // Read current state to make retries and out-of-order events idempotent.
