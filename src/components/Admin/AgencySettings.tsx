@@ -40,9 +40,8 @@ export default function AgencySettings() {
         <Input label="Chave Pix" value={config.pixKey || ''} onChange={value => setConfig({ ...config, pixKey: value })} />
         <label className="block text-xs font-bold text-zinc-500">Tipo da chave Pix<select value={config.pixKeyType || ''} onChange={event => setConfig({ ...config, pixKeyType: event.target.value as AgencyConfig['pixKeyType'] })} className="mt-2 min-h-11 w-full rounded-2xl border bg-white p-4 text-sm text-black"><option value="">Não informado</option><option value="cnpj">CNPJ</option><option value="cpf">CPF</option><option value="email">E-mail</option><option value="phone">Telefone</option><option value="random">Aleatória</option></select></label>
         <Input label="URL HTTPS do QR Code Pix" value={config.pixQrCodeUrl || ''} onChange={value => setConfig({ ...config, pixQrCodeUrl: value })} />
-        <Input label="Link de pagamento Mercado Pago" value={config.mercadopagoPaymentLink || ''} onChange={value => setConfig({ ...config, mercadopagoPaymentLink: value })} />
       </div>
-      <p className="text-xs text-zinc-500">Use a imagem de um QR Code válido da agência. Confira o destinatário, o valor e a opção de cartão do link antes de salvar. Pagamentos serão conferidos manualmente.</p>
+      <p className="text-xs text-zinc-500">Use a imagem de um QR Code válido da agência. Confira o destinatário e o valor antes de salvar. Pagamentos Pix serão conferidos manualmente.</p>
     </section>
   </div></div>;
 }

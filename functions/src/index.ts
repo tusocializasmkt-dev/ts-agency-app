@@ -1,7 +1,7 @@
 import { manageAccess, type AccessCommand, type AccessKind, type AccessManagementDependencies, type AccessProfile } from './access-management.js';
 import { mapAccessError } from './access-errors.js';
 import { createHash } from 'node:crypto';
-import { HttpsError, onCall } from 'firebase-functions/v2/https';
+import { HttpsError, onCall, onRequest } from 'firebase-functions/v2/https';
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as logger from 'firebase-functions/logger';
@@ -13,6 +13,55 @@ import { synchronizeBrandShowcase } from './brand-showcase.js';
 import { operationalBrand, publicAgency } from './operational-projection.js';
 
 const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58';
+export const manageInvoiceDocuments = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true, timeoutSeconds: 120 }, async request => {
+  const { db, auth } = await getAdminServices();
+  const { authenticatedBillingActor } = await import('./invoice-billing.js');
+  const actor = await authenticatedBillingActor(auth, request.auth);
+  const { manageInvoices } = await import('./invoice-management.js');
+  return manageInvoices(db, actor.uid, request.data);
+});
+async function checkoutReaderServices() {
+  const token = process.env.MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN;
+  const collectorId = process.env.MERCADO_PAGO_CHECKOUT_COLLECTOR_ID;
+  const mode = process.env.MERCADO_PAGO_CHECKOUT_LIVE_MODE;
+  if (!token?.trim() || !collectorId || !/^\d{1,32}$/.test(collectorId) || !['true', 'false'].includes(mode || '')) throw new HttpsError('failed-precondition', 'Reconciliação não configurada.');
+  const { createPaymentReader, mercadoPagoGet } = await import('./checkout-payment-provider.js');
+  const { db } = await getAdminServices();
+  return { db, reader: createPaymentReader(mercadoPagoGet(token)), policy: { collectorId, liveMode: mode === 'true' } };
+}
+export const mercadoPagoCheckoutWebhook = onRequest({ region: 'southamerica-east1', invoker: 'public', cors: false, timeoutSeconds: 60, secrets: ['MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN', 'MERCADO_PAGO_CHECKOUT_WEBHOOK_SECRET'] }, async (request, response) => {
+  try {
+    const { handleCheckoutWebhook } = await import('./checkout-webhook.js');
+    const status = await handleCheckoutWebhook({ method: request.method, headers: request.headers, query: request.query, body: request.body }, process.env.MERCADO_PAGO_CHECKOUT_WEBHOOK_SECRET || '', checkoutReaderServices);
+    response.status(status).end();
+  } catch {
+    logger.warn('checkout_webhook_retry_required');
+    response.status(503).end();
+  }
+});
+export const reconcileInvoiceCheckout = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true, timeoutSeconds: 300, secrets: ['MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN'] }, async request => {
+  const { db, auth } = await getAdminServices();
+  const { authenticatedBillingActor } = await import('./invoice-billing.js');
+  const { reconcileCheckout, assertCheckoutAdmin } = await import('./checkout-payment-processing.js');
+  const actor = await authenticatedBillingActor(auth, request.auth);
+  await assertCheckoutAdmin(db, actor.uid);
+  const { reader, policy } = await checkoutReaderServices();
+  try { return { results: await reconcileCheckout(db, actor.uid, request.data, reader, policy) }; }
+  catch (error) {
+    if (error instanceof HttpsError) throw error;
+    logger.warn('checkout_reconciliation_retry_required');
+    throw new HttpsError('unavailable', 'Não foi possível concluir a reconciliação. Tente novamente.');
+  }
+});
+export const createInvoiceCheckout = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true, secrets: ['MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN'], timeoutSeconds: 60 }, async request => {
+  const { db, auth } = await getAdminServices();
+  const { authenticatedBillingActor } = await import('./invoice-billing.js');
+  const actor = await authenticatedBillingActor(auth, request.auth);
+  // Stage 1 remains disabled until webhook, reconciliation and remote configuration are ready.
+  if (process.env.INVOICE_CHECKOUT_ENABLED !== 'true' || !process.env.MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN?.trim()) throw new HttpsError('failed-precondition', 'Pagamento pelo Mercado Pago indisponível no momento.');
+  const [{ createInvoiceCheckout: create }, { createMercadoPagoCheckout, mercadoPagoTransport }] = await Promise.all([import('./invoice-checkout.js'), import('./mercado-pago-checkout.js')]);
+  return create(db, actor.uid, request.data, createMercadoPagoCheckout(mercadoPagoTransport(process.env.MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN)));
+});
 // Public transport is required by browser callables; Firebase Auth and profile authorization
 // are enforced in the handler. No banking secrets or SDK initialization during discovery.
 export const reportInvoicePayment = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true }, async request => {

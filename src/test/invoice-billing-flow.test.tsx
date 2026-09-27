@@ -27,7 +27,22 @@ it('cancelar confirmação não registra pagamento', async () => {
 });
 it('admin encontra pagamento informado, filtra status e confirma pelo fluxo existente', async () => {
   state.role = 'admin'; state.invoices[0].status = 'payment_reported'; render(<FinanceView selectedBrandId="client" isAdmin />);
-  fireEvent.change(screen.getByRole('combobox', { name: 'Filtrar por status' }), { target: { value: 'payment_reported' } });
+  fireEvent.change(screen.getByRole('combobox', { name: 'Filtrar faturas' }), { target: { value: 'open' } });
   expect(screen.getByText(/Pagamento informado pelo cliente/)).toBeVisible(); fireEvent.click(screen.getByRole('button', { name: 'Confirmar pagamento' }));
   await waitFor(() => expect(state.paid).toHaveBeenCalledWith('invoice')); expect(state.report).not.toHaveBeenCalled();
+});
+it.each([true, false])('filtros e grupos cronológicos funcionam com isAdmin=%s', async isAdmin => {
+  state.role = isAdmin ? 'admin' : 'client';
+  state.invoices = [
+    { id: 'feb', brandId: 'client', description: 'Fevereiro futuro', amount: 100, dueDate: '2099-02-02', status: 'pending' },
+    { id: 'oct', brandId: 'client', description: 'Outubro futuro', amount: 100, dueDate: '2098-10-20', status: 'pending' },
+    { id: 'old', brandId: 'client', description: 'Cobrança antiga', amount: 100, dueDate: '2024-01-20', status: 'pending' },
+  ];
+  render(<FinanceView selectedBrandId="client" isAdmin={isAdmin} />);
+  expect(screen.getByText('Cobrança antiga')).toBeVisible(); expect(screen.queryByText('Fevereiro futuro')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByRole('combobox', { name: 'Filtrar faturas' }), { target: { value: 'future' } });
+  expect(screen.queryByText('Cobrança antiga')).not.toBeInTheDocument();
+  const titles = screen.getAllByRole('heading', { level: 2 }).map(node => node.textContent);
+  expect(titles).toEqual(['outubro de 2098', 'Outubro futuro', 'fevereiro de 2099', 'Fevereiro futuro']);
+  if (!isAdmin) { expect(screen.queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument(); }
 });

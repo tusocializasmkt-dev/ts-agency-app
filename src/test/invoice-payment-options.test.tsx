@@ -21,9 +21,8 @@ describe('meios simples de pagamento', () => {
     state.copy.mockRejectedValueOnce(new Error()); show(); fireEvent.click(screen.getByRole('button', { name: 'Copiar Pix' }));
     await waitFor(() => expect(state.error).toHaveBeenCalled()); expect(screen.getByText(config.pixKey!)).toBeVisible();
   });
-  it('cartão usa link externo seguro sem formulário ou confirmação automática', () => {
-    show(); const link = screen.getByRole('link', { name: 'Pagar com cartão' });
-    expect(link).toHaveAttribute('href', config.mercadopagoPaymentLink); expect(link).toHaveAttribute('target', '_blank'); expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  it('checkout desativado não usa fallback global nem coleta cartão', () => {
+    show(); expect(screen.getByRole('button', { name: 'Pagar com Mercado Pago' })).toBeDisabled(); expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
   it('ausência de meios ou URLs inválidas não cria opções quebradas', () => {
@@ -47,7 +46,7 @@ describe('meios simples de pagamento', () => {
     view.rerender(<InvoicePaymentOptions invoice={invoice} config={config} isAdmin busy={false} onReport={vi.fn()} />); expect(screen.queryByRole('button', { name: 'Já fiz o pagamento' })).not.toBeInTheDocument();
   });
   it.each(['http://mpago.la/a', 'javascript:alert(1)', 'https://mercadopago.com.br.evil.test/pay', 'https://mercadopago.com.br@evil.test/pay', 'https://evil.test/mercadopago.com.br', 'https://mpago.la:9000/a', 'https://mpago.la/'])('rejeita link inválido %s', url => {
-    expect(mercadoPagoLink(url)).toBeUndefined(); expect(() => validatePaymentSettings({ mercadopagoPaymentLink: url })).toThrow(/Mercado Pago/);
+    expect(mercadoPagoLink(url)).toBeUndefined(); expect(() => validatePaymentSettings({ mercadopagoPaymentLink: url })).not.toThrow();
   });
   it('aceita links oficiais e campos vazios; rejeita QR não HTTPS', () => {
     expect(mercadoPagoLink(' https://link.mercadopago.com.br/agencia ')).toBe('https://link.mercadopago.com.br/agencia'); expect(() => validatePaymentSettings({})).not.toThrow(); expect(() => validatePaymentSettings({ pixQrCodeUrl: 'http://example.com/qr.png' })).toThrow(/HTTPS/);

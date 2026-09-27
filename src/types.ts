@@ -11,7 +11,7 @@ export type PostType = 'feed' | 'reels' | 'stories' | 'carousel' | 'other';
 export type PostStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'scheduled';
 export type PostDecisionAction = 'approved' | 'rejected' | 'changes_requested' | 'resubmitted';
 export type BillingEvent = 'payment_reported' | 'payment_confirmed' | 'reminder_due_3_days' | 'reminder_due_today' | 'reminder_overdue_1_day' | 'reminder_overdue_7_days' | 'reminder_overdue_9_days' | 'admin_overdue_10_days';
-export type NotificationType = BillingEvent | 'post_created' | 'post_approved' | 'post_rejected' | 'post_changes_requested' | 'post_resubmitted' | 'invoice_created' | 'payment_confirmed' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected' | 'manual';
+export type NotificationType = BillingEvent | 'checkout_review' | 'post_created' | 'post_approved' | 'post_rejected' | 'post_changes_requested' | 'post_resubmitted' | 'invoice_created' | 'payment_confirmed' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected' | 'manual';
 export type NotificationSource = 'system' | 'admin';
 export type PostObjective = 'venda' | 'engajamento' | 'autoridade' | 'tráfego';
 export type InvoiceStatus = 'payment_reported' | 'pending' | 'overdue' | 'paid' | 'suspended' | 'cancelled';
@@ -154,8 +154,8 @@ export interface PaymentPromise {
 }
 
 export type PixKeyType = 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
-export type InvoiceHistoryAction = BillingEvent | 'created' | 'edited' | 'amount_changed' | 'due_date_changed' | 'boleto_replaced' | 'marked_paid' | 'suspended' | 'resumed' | 'cancelled' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected';
-export interface InvoiceHistory { id: string; invoiceId: string; brandId: string; action: InvoiceHistoryAction; previousStatus?: InvoiceStatus; newStatus?: InvoiceStatus; previousAmount?: number; newAmount?: number; previousDueDate?: ISODateString; newDueDate?: ISODateString; previousBoletoMediaId?: string; newBoletoMediaId?: string; note?: string; actorUid: string; actorRole: UserRole; createdAt?: Date; }
+export type InvoiceHistoryAction = BillingEvent | 'series_edited' | 'series_shortened' | 'created' | 'edited' | 'amount_changed' | 'due_date_changed' | 'boleto_replaced' | 'marked_paid' | 'suspended' | 'resumed' | 'cancelled' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected';
+export interface InvoiceHistory { id: string; invoiceId: string; brandId: string; action: InvoiceHistoryAction; previousStatus?: InvoiceStatus; newStatus?: InvoiceStatus; previousAmount?: number; newAmount?: number; previousDueDate?: ISODateString; newDueDate?: ISODateString; previousBoletoMediaId?: string; newBoletoMediaId?: string; note?: string; actorUid: string; actorRole: UserRole | 'system'; createdAt?: Date; }
 
 export interface Invoice {
   id: string;

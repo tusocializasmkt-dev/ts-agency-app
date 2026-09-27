@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Auth } from 'firebase-admin/auth';
 import { FieldValue, type Firestore, type Transaction, type DocumentReference, type DocumentData, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { settleInvoice } from './invoice-settlement.js';
 
 type Actor = { uid: string; authTime: number };
 type Invoice = { brandId: string; amount: number; dueDate: string; status: string; description?: string; paymentReportCount?: number };
@@ -80,10 +81,7 @@ export async function confirmPayment(db: Firestore, actor: Actor, id: string): P
     const admin = await tx.get(db.collection('admins').doc(actor.uid));
     if (!admin.exists || admin.data()?.active === false) throw new HttpsError('permission-denied', 'Acesso negado.');
     const invoice = invoiceData((await tx.get(ref)).data());
-    if (invoice.status === 'paid') return { status: 'paid' };
-    if (!open(invoice) && invoice.status !== 'payment_reported') throw new HttpsError('failed-precondition', 'Esta fatura não pode ser confirmada.');
-    tx.update(ref, { status: 'paid', paidAt: FieldValue.serverTimestamp(), confirmedBy: actor.uid, updatedBy: actor.uid, updatedAt: FieldValue.serverTimestamp() });
-    recordEvent(db, tx, ref, invoice, 'payment_confirmed', 'payment_confirmed', actor.uid, 'admin', [invoice.brandId], 'Pagamento confirmado', context(id, invoice), false, { previousStatus: invoice.status, newStatus: 'paid' });
+    settleInvoice(db, tx, ref, invoice, { kind: 'manual', adminUid: actor.uid });
     return { status: 'paid' };
   });
 }

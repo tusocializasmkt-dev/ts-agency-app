@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 const functionsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(resolve(functionsDir, 'package.json'));
 const sdkBin = resolve(dirname(require.resolve('firebase-functions/v2/https')), '../../bin/firebase-functions.js');
-const expected = ['reportInvoicePayment', 'confirmInvoicePayment', 'sendInvoiceReminders', 'syncOperationalBrand', 'syncPublicAgency', 'syncBrandShowcase', 'internalLogin', 'setInternalCredential', 'createClientAccess', 'createClientWithAccess', 'resetClientPassword', 'setClientAccessStatus', 'createTeamMember', 'updateTeamMember', 'resetTeamMemberPassword', 'manageUserAccess', 'marketingAssistant'];
+const expected = ['manageInvoiceDocuments', 'mercadoPagoCheckoutWebhook', 'reconcileInvoiceCheckout', 'createInvoiceCheckout', 'reportInvoicePayment', 'confirmInvoicePayment', 'sendInvoiceReminders', 'syncOperationalBrand', 'syncPublicAgency', 'syncBrandShowcase', 'internalLogin', 'setInternalCredential', 'createClientAccess', 'createClientWithAccess', 'resetClientPassword', 'setClientAccessStatus', 'createTeamMember', 'updateTeamMember', 'resetTeamMemberPassword', 'manageUserAccess', 'marketingAssistant'];
 const probe = createServer();
 await new Promise(resolve => probe.listen(0, '127.0.0.1', resolve));
 const { port } = probe.address();
@@ -43,7 +43,9 @@ try {
   assert.ok(!(manifest.params ?? []).some(param => param.type === 'secret'), 'Administrative discovery must not register global secret parameters');
   assert.deepEqual(manifest.endpoints.marketingAssistant.secretEnvironmentVariables, [{ key: 'OPENAI_API_KEY' }]);
   for (const [name, endpoint] of Object.entries(manifest.endpoints)) {
-    if (name !== 'marketingAssistant') assert.equal(endpoint.secretEnvironmentVariables?.length ?? 0, 0, `${name} must not depend on the OpenAI secret`);
+    if (['createInvoiceCheckout', 'reconcileInvoiceCheckout'].includes(name)) assert.deepEqual(endpoint.secretEnvironmentVariables, [{ key: 'MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN' }]);
+    else if (name === 'mercadoPagoCheckoutWebhook') assert.deepEqual(endpoint.secretEnvironmentVariables, [{ key: 'MERCADO_PAGO_CHECKOUT_ACCESS_TOKEN' }, { key: 'MERCADO_PAGO_CHECKOUT_WEBHOOK_SECRET' }]);
+    else if (name !== 'marketingAssistant') assert.equal(endpoint.secretEnvironmentVariables?.length ?? 0, 0, `${name} must not depend on secrets`);
   }
   for (const [name, endpoint] of Object.entries(manifest.endpoints)) {
     if (endpoint.eventTrigger?.eventType.startsWith('google.cloud.firestore.')) {

@@ -1,11 +1,54 @@
 import assert from 'node:assert/strict'; import { readFileSync } from 'node:fs'; import test, { after, before } from 'node:test';
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { deleteObject, getBytes, ref, uploadBytes } from 'firebase/storage';
 let environment;
+test('gestão: browser não contorna backend de edição, exclusão ou prévias', async () => {
+  await environment.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), 'invoice_management_operations/preview'), { uid: 'admin', status: 'preview' }));
+  for (const uid of ['admin', 'client-a', 'team-active']) {
+    const db = environment.authenticatedContext(uid).firestore();
+    await assertFails(deleteDoc(doc(db, 'invoices/invoice-a')));
+    await assertFails(updateDoc(doc(db, 'invoices/invoice-a'), { amount: 1 }));
+    await assertFails(setDoc(doc(db, 'invoice_management_operations/preview'), { status: 'confirmed' }));
+    if (uid === 'admin') await assertSucceeds(getDoc(doc(db, 'invoice_management_operations/preview')));
+    else await assertFails(getDoc(doc(db, 'invoice_management_operations/preview')));
+  }
+  const admin = environment.authenticatedContext('admin').firestore();
+  await assertSucceeds(setDoc(doc(admin, 'invoices/new-pending'), { brandId: 'client-a', amount: 100, dueDate: '2026-10-20', status: 'pending' }));
+  await assertFails(setDoc(doc(admin, 'invoices/new-paid'), { brandId: 'client-a', amount: 100, dueDate: '2026-10-20', status: 'paid' }));
+  await assertSucceeds(updateDoc(doc(admin, 'invoices/new-pending'), { paymentPromise: { status: 'approved', requestedDate: '2026-10-25' }, promisedPaymentDate: '2026-10-25' }));
+});
 const mediaRecord = brandId => ({ brandId, fileName: 'arte.png', originalFileName: 'arte.png', mediaType: 'image', category: 'feed', teamVisible: true, mimeType: 'image/png', sizeBytes: 4, storagePath: `brands/${brandId}/media/media-${brandId}/arte.png`, status: 'ready', source: 'upload' });
 before(async () => { environment = await initializeTestEnvironment({ projectId: 'demo-ts-agency-rules', firestore: { rules: readFileSync('firestore.rules', 'utf8') }, storage: { rules: readFileSync('storage.rules', 'utf8') } }); await environment.withSecurityRulesDisabled(async context => { const db = context.firestore(); await setDoc(doc(db, 'admins/admin'), { role: 'admin' }); await setDoc(doc(db, 'team_members/team-active'), { uid: 'team-active', role: 'social_media', active: true, brandIds: ['client-a'] }); await setDoc(doc(db, 'team_members/team-inactive'), { uid: 'team-inactive', role: 'manager', active: false, brandIds: ['client-a'] }); await setDoc(doc(db, 'brands/client-a'), { name: 'A', status: 'active' }); await setDoc(doc(db, 'brands/client-b'), { name: 'B', status: 'active', cnpj: 'privado' }); await setDoc(doc(db, 'brand_showcase/client-a'), { displayName: 'A', logoUrl: 'https://logo.test/a.png', visible: true }); await setDoc(doc(db, 'brand_showcase/client-b'), { displayName: 'B', visible: false }); await setDoc(doc(db, 'invoices/invoice-a'), { brandId: 'client-a', amount: 100, dueDate: '2026-08-10', status: 'pending' }); await setDoc(doc(db, 'payments/payment-a'), { brandId: 'client-a', invoiceId: 'invoice-a', status: 'pending' }); await setDoc(doc(db, 'payments/payment-b'), { brandId: 'client-b', invoiceId: 'invoice-b', status: 'pending' }); await setDoc(doc(db, 'media/media-a'), mediaRecord('client-a')); await setDoc(doc(db, 'media/media-b'), mediaRecord('client-b')); }); });
 after(async () => environment?.cleanup());
+test('Etapa 2: eventos e transações do provider são visíveis somente ao Admin e nunca graváveis pelo browser', async () => {
+  for (const path of ['checkout_webhook_events/event', 'checkout_provider_payments/123']) {
+    await environment.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), path), { status: 'retryable' }));
+    for (const uid of ['client-a', 'team-active', 'disabled-admin']) {
+      const db = environment.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(db, path))); await assertFails(setDoc(doc(db, path), { status: 'approved' }));
+    }
+    const db = environment.authenticatedContext('admin').firestore();
+    await assertSucceeds(getDoc(doc(db, path))); await assertFails(setDoc(doc(db, path), { status: 'approved' }));
+    await assertFails(getDoc(doc(environment.unauthenticatedContext().firestore(), path)));
+  }
+});
+test('checkout técnico é privado e somente backend grava reserva/transação', async () => {
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'payments/hosted'), { brandId: 'client-a', integrationMode: 'checkout_pro', status: 'ready' });
+    await setDoc(doc(context.firestore(), 'payments/hosted/attempts/a'), { status: 'ready' });
+  });
+  for (const uid of ['client-a', 'team-active']) {
+    const db = environment.authenticatedContext(uid).firestore();
+    await assertFails(getDoc(doc(db, 'payments/hosted')));
+    await assertFails(getDoc(doc(db, 'payments/hosted/attempts/a')));
+    await assertFails(setDoc(doc(db, 'invoice_checkout_locks/invoice-a'), { paymentId: 'hosted' }));
+    await assertFails(updateDoc(doc(db, 'payments/hosted'), { status: 'approved' }));
+  }
+  const db = environment.authenticatedContext('admin').firestore();
+  await assertSucceeds(getDoc(doc(db, 'payments/hosted')));
+  await assertFails(getDoc(doc(db, 'invoice_checkout_locks/invoice-a')));
+});
 test('8E: equipe usa projeção sem financeiro e não pode editar credenciais', async () => {
   await environment.withSecurityRulesDisabled(async context => {
     const db = context.firestore();
@@ -47,7 +90,7 @@ test('8E: Storage bloqueia fatura, reclassificação e objeto legado não classi
 });
 test('cliente lê própria Invoice e Payment, mas não Payment de outro', async () => { const db = environment.authenticatedContext('client-a').firestore(); await assertSucceeds(getDoc(doc(db, 'invoices/invoice-a'))); await assertSucceeds(getDoc(doc(db, 'payments/payment-a'))); await assertFails(getDoc(doc(db, 'payments/payment-b'))); });
 test('cliente não grava Payment, Attempt, Event, idempotência ou promise diretamente', async () => { const db = environment.authenticatedContext('client-a').firestore(); await assertFails(setDoc(doc(db, 'payments/new'), { brandId: 'client-a' })); await assertFails(updateDoc(doc(db, 'payments/payment-a'), { status: 'approved' })); await assertFails(setDoc(doc(db, 'payments/payment-a/attempts/new'), { status: 'created' })); await assertFails(setDoc(doc(db, 'payments/payment-a/events/new'), { type: 'payment_approved' })); await assertFails(getDoc(doc(db, 'payment_idempotency/key'))); await assertFails(updateDoc(doc(db, 'invoices/invoice-a'), { paymentPromise: { status: 'pending' } })); });
-test('admin mantém leitura financeira e gestão esperada de Invoice', async () => { const db = environment.authenticatedContext('admin').firestore(); await assertSucceeds(getDoc(doc(db, 'payments/payment-a'))); await assertSucceeds(updateDoc(doc(db, 'invoices/invoice-a'), { brandId: 'client-a', amount: 100, dueDate: '2026-08-10', status: 'suspended' })); await assertFails(setDoc(doc(db, 'payments/admin-write'), { brandId: 'client-a' })); });
+test('admin mantém leitura financeira e gestão esperada de Invoice', async () => { const db = environment.authenticatedContext('admin').firestore(); await assertSucceeds(getDoc(doc(db, 'payments/payment-a'))); await assertFails(updateDoc(doc(db, 'invoices/invoice-a'), { brandId: 'client-a', amount: 100, dueDate: '2026-08-10', status: 'suspended' })); await assertFails(setDoc(doc(db, 'payments/admin-write'), { brandId: 'client-a' })); });
 test('cliente acessa somente a própria Brand e não altera ações administrativas', async () => { const db = environment.authenticatedContext('client-a').firestore(); await assertSucceeds(getDoc(doc(db, 'brands/client-a'))); await assertFails(getDoc(doc(db, 'brands/client-b'))); await assertFails(updateDoc(doc(db, 'invoices/invoice-a'), { brandId: 'client-a', amount: 100, dueDate: '2026-08-10', status: 'paid' })); await assertFails(setDoc(doc(db, 'agency_config/default'), { name: 'Intrusão' })); });
 test('cliente lê apenas projeções visíveis e não escreve nelas', async () => { const db = environment.authenticatedContext('client-a').firestore(); const visible = await assertSucceeds(getDoc(doc(db, 'brand_showcase/client-a'))); assert.deepEqual(Object.keys(visible.data()).sort(), ['displayName', 'logoUrl', 'visible']); await assertFails(getDoc(doc(db, 'brand_showcase/client-b'))); const list = await assertSucceeds(getDocs(query(collection(db, 'brand_showcase'), where('visible', '==', true)))); assert.equal(list.size, 1); await assertFails(setDoc(doc(db, 'brand_showcase/forged'), { displayName: 'Falsa', visible: true })); await assertFails(updateDoc(doc(db, 'brand_showcase/client-a'), { displayName: 'Invadida' })); });
 test('somente admin altera showcaseVisible na Brand', async () => { const admin = environment.authenticatedContext('admin').firestore(); const team = environment.authenticatedContext('team-active').firestore(); const client = environment.authenticatedContext('client-a').firestore(); await assertSucceeds(updateDoc(doc(admin, 'brands/client-a'), { showcaseVisible: false })); await assertFails(updateDoc(doc(team, 'brands/client-a'), { showcaseVisible: true })); await assertFails(updateDoc(doc(client, 'brands/client-a'), { showcaseVisible: true })); });
@@ -76,5 +119,5 @@ test('financeiro simples: cliente lê configuração e fatura informada; não gr
   for (const changes of [{ status: 'payment_reported' }, { status: 'paid' }, { amount: 1 }, { dueDate: '2099-01-01' }]) await assertFails(updateDoc(doc(client, 'invoices/reported'), changes));
   await assertFails(setDoc(doc(client, 'invoices/reported/history/forged'), { action: 'payment_confirmed', actorUid: 'client-a', actorRole: 'admin' }));
   await assertFails(updateDoc(doc(client, 'agency_config/default'), { mercadopagoPaymentLink: 'https://mpago.la/other' }));
-  await assertSucceeds(updateDoc(doc(admin, 'invoices/reported'), { description: 'Revisada pelo admin' }));
+  await assertFails(updateDoc(doc(admin, 'invoices/reported'), { description: 'Revisada pelo admin' }));
 });

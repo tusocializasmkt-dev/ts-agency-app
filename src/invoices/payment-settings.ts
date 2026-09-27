@@ -17,5 +17,5 @@ export function mercadoPagoLink(value?: string): string | undefined {
 }
 export function validatePaymentSettings(config: Partial<AgencyConfig>): void {
   if (config.pixQrCodeUrl?.trim() && !safeHttpsUrl(config.pixQrCodeUrl)) throw new Error('Informe uma URL HTTPS válida para o QR Code Pix.');
-  if (config.mercadopagoPaymentLink?.trim() && !mercadoPagoLink(config.mercadopagoPaymentLink)) throw new Error('Informe um link HTTPS de pagamento do Mercado Pago (mercadopago.com.br ou mpago.la).');
+  // Legacy mercadopagoPaymentLink is tolerated but no longer used as a payment option.
 }
