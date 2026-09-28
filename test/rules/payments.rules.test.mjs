@@ -3,6 +3,17 @@ import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebas
 import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from 'firebase/firestore';
 import { deleteObject, getBytes, ref, uploadBytes } from 'firebase/storage';
 let environment;
+test('auditoria de exclusão é legível apenas pelo Admin e nunca gravável pelo browser', async () => {
+  const path = 'invoice_management_operations/deleted/deleted_invoices/invoice-a';
+  await environment.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), path), { invoice: { status: 'paid', confirmedBy: 'admin' }, deletedBy: 'admin' }));
+  for (const uid of ['admin', 'client-a', 'team-active', 'disabled-admin']) {
+    const db = environment.authenticatedContext(uid).firestore();
+    if (uid === 'admin') await assertSucceeds(getDoc(doc(db, path))); else await assertFails(getDoc(doc(db, path)));
+    await assertFails(setDoc(doc(db, path), { deletedBy: uid }));
+    await assertFails(deleteDoc(doc(db, path)));
+  }
+  await assertFails(getDoc(doc(environment.unauthenticatedContext().firestore(), path)));
+});
 test('gestão: browser não contorna backend de edição, exclusão ou prévias', async () => {
   await environment.withSecurityRulesDisabled(async context => setDoc(doc(context.firestore(), 'invoice_management_operations/preview'), { uid: 'admin', status: 'preview' }));
   for (const uid of ['admin', 'client-a', 'team-active']) {

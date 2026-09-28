@@ -4,7 +4,8 @@ import { HttpsError } from 'firebase-functions/v2/https';
 import { checkoutInvoiceId, checkoutInvoiceVersion, invoiceAmountCents, type CheckoutInvoice } from './invoice-checkout-domain.js';
 import { billingDate } from './invoice-billing.js';
 
-type Command = { action: 'edit' | 'delete' | 'edit_series' | 'delete_series' | 'delete_before' | 'inspect' | 'transition'; invoiceId: string; changes?: Record<string, unknown>; before?: string; endDate?: string; day?: number; status?: string };
+type Command = { action: 'edit' | 'delete' | 'edit_series' | 'delete_series' | 'delete_before' | 'delete_all' | 'inspect' | 'transition'; invoiceId: string; changes?: Record<string, unknown>; before?: string; endDate?: string; day?: number; status?: string };
+const deletionActions = ['delete', 'delete_series', 'delete_before', 'delete_all'];
 const fail = (message: string): never => { throw new HttpsError('failed-precondition', message); };
 const date = (value: unknown): string => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T12:00:00Z`)) || new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) !== value) throw new HttpsError('invalid-argument', 'Data inválida.');
@@ -33,7 +34,7 @@ const cleanChanges = (input: unknown) => {
 };
 function commandFrom(data: any): Command {
   const invoiceId = checkoutInvoiceId(data);
-  if (!['edit', 'delete', 'edit_series', 'delete_series', 'delete_before', 'inspect', 'transition'].includes(data?.action)) throw new HttpsError('invalid-argument', 'Operação inválida.');
+  if (!['edit', ...deletionActions, 'edit_series', 'inspect', 'transition'].includes(data?.action)) throw new HttpsError('invalid-argument', 'Operação inválida.');
   const command: Command = { action: data.action, invoiceId, changes: cleanChanges(data.changes) };
   if (data.before !== undefined) command.before = date(data.before);
   if (data.endDate !== undefined) command.endDate = date(data.endDate);
@@ -68,6 +69,24 @@ function protectedReason(item: Loaded, deleting: boolean): string | null {
   if (deleting && item.notifications.some(doc => doc.data().type !== 'invoice_created')) return 'Existem notificações financeiras relacionadas.';
   return null;
 }
+// Administrative status/history alone is not evidence of an external transaction.
+// All linked payments and locks remain protected, including failed/uncertain attempts.
+function deletionReason(item: Loaded): string | null {
+  const invoice = item.snapshot.data()!;
+  const externalEvidence = (data: Record<string, any>) => Boolean(
+    data.settlementPaymentId || data.externalPaymentId || data.preferenceId || data.paymentId
+    || (data.confirmationSource && !['manual', 'admin'].includes(data.confirmationSource))
+    || (data.provider && !['manual', 'admin'].includes(data.provider))
+    || (data.action === 'payment_confirmed' && data.actorRole === 'system')
+    || /mercado.?pago|chargeback|refund|dispute|external|checkout/i.test(String(data.action || data.type || ''))
+    || String(data.actorUid || data.confirmedBy || '').startsWith('system:mercado-pago')
+  );
+  if (item.external || externalEvidence(invoice) || item.history.some(doc => externalEvidence(doc.data())) || item.notifications.some(doc => externalEvidence(doc.data()))) {
+    return 'Pagamento externo, checkout ou tentativa vinculada: fatura e registros financeiros preservados.';
+  }
+  if (item.history.length > 60 || item.notifications.length > 60) return 'Limite seguro de histórico excedido: revisão individual necessária.';
+  return null;
+}
 export async function manageInvoices(db: Firestore, uid: string, input: any, now = new Date()) {
   if (!uid) throw new HttpsError('unauthenticated', 'Entre novamente.');
   const phase = input?.phase;
@@ -86,11 +105,13 @@ export async function manageInvoices(db: Firestore, uid: string, input: any, now
       if (Date.parse(stored.expiresAt) < now.getTime()) fail('A prévia expirou. Gere uma nova.');
       command = commandFrom(stored.command);
     } else command = commandFrom(input);
+    const explicitDeletion = deletionActions.includes(command.action);
     if (phase === 'apply' && !['edit', 'transition'].includes(command.action)) fail('Esta operação exige prévia e confirmação.');
     const anchor = await tx.get(db.doc(`invoices/${command.invoiceId}`));
     if (!anchor.exists) throw new HttpsError('not-found', 'Fatura não encontrada.');
     const base = anchor.data()!;
-    const seriesAction = ['edit_series', 'delete_series', 'delete_before', 'inspect'].includes(command.action);
+    const seriesAction = ['edit_series', 'delete_series', 'delete_before', 'delete_all', 'inspect'].includes(command.action);
+    if (preview && explicitDeletion && (preview.data()!.deletionScope?.brandId !== base.brandId || preview.data()!.deletionScope?.group !== (base.recurrenceGroupId || null))) fail('A seleção mudou. Atualize o cálculo antes de excluir.');
     let snapshots: DocumentSnapshot[] = [anchor];
     if (seriesAction) {
       if (!base.recurrenceGroupId || typeof base.recurrenceGroupId !== 'string') fail('Esta fatura não pertence a uma recorrência.');
@@ -110,7 +131,7 @@ export async function manageInvoices(db: Firestore, uid: string, input: any, now
     const edits: { item: Loaded; changes: Record<string, unknown> }[] = []; const removals: Loaded[] = []; const protectedInvoices: { id: string; dueDate: string; reason: string }[] = [];
     for (const item of loaded) {
       const current = item.snapshot.data()!;
-      const selected = command.action === 'delete_before' ? current.dueDate < command.before! : seriesAction ? current.dueDate >= base.dueDate : true;
+      const selected = command.action === 'delete_all' ? true : command.action === 'delete_before' ? current.dueDate < command.before! : seriesAction ? current.dueDate >= base.dueDate : true;
       if (!selected) continue;
       const changes = { ...command.changes };
       if (command.action === 'edit_series') {
@@ -122,8 +143,8 @@ export async function manageInvoices(db: Firestore, uid: string, input: any, now
         if (command.endDate) changes.recurrenceEnd = command.endDate.slice(0, 7);
       }
       const effectiveDueDate = String(changes.dueDate || current.dueDate);
-      const deleting = ['delete', 'delete_series', 'delete_before'].includes(command.action) || (command.action === 'edit_series' && !!command.endDate && effectiveDueDate > command.endDate);
-      let reason = protectedReason(item, deleting);
+      const deleting = explicitDeletion || (command.action === 'edit_series' && !!command.endDate && effectiveDueDate > command.endDate);
+      let reason = explicitDeletion ? deletionReason(item) : protectedReason(item, deleting);
       if (deleting && command.action === 'edit_series' && current.dueDate <= billingDate(now)) reason = 'Encurtamento remove apenas parcelas futuras. Use Gerenciar recorrência para corrigir parcelas antigas.';
       for (const key of Object.keys(changes)) if ((current[key] ?? '') === changes[key]) delete changes[key];
       // Notes alone may be corrected individually without changing financial evidence.
@@ -139,6 +160,8 @@ export async function manageInvoices(db: Firestore, uid: string, input: any, now
         if (command.status === 'pending') changes.suspendedAt = FieldValue.delete();
       }
       if (reason) { protectedInvoices.push({ id: item.snapshot.id, dueDate: current.dueDate, reason }); continue; }
+      // Never expand a confirmed selection to documents not originally counted as removable.
+      if (preview && explicitDeletion && !preview.data()!.deletionIds?.includes(item.snapshot.id)) continue;
       if (deleting) removals.push(item); else if (Object.keys(changes).length) edits.push({ item, changes });
     }
     if (phase === 'apply' && protectedInvoices.length) fail(protectedInvoices[0].reason);
@@ -149,15 +172,19 @@ export async function manageInvoices(db: Firestore, uid: string, input: any, now
     }
     const result = { summary, updated: edits.length, removed: removals.length, preserved: loaded.length - edits.length - removals.length, protected: protectedInvoices.length, protectedInvoices };
     const digest = createHash('sha256').update(JSON.stringify({ command, evidence: loaded.flatMap(item => item.evidence), result })).digest('hex');
-    const writes = edits.length * 2 + removals.reduce((sum, item) => sum + 1 + item.history.length + item.notifications.length, 0) + 1;
+    // Archive administrative evidence before physically removing invoices/history/notifications.
+    const archives = removals.map(item => ({ invoiceId: item.snapshot.id, invoice: item.snapshot.data()!, history: item.history.map(doc => ({ id: doc.id, ...doc.data() })), notifications: item.notifications.map(doc => ({ id: doc.id, ...doc.data() })) }));
+    if (archives.some(archive => Buffer.byteLength(JSON.stringify(archive)) > 700_000)) fail('Histórico excede o tamanho seguro de auditoria. Nenhuma fatura foi excluída.');
+    const writes = edits.length * 2 + removals.reduce((sum, item) => sum + 2 + item.history.length + item.notifications.length, 0) + 1;
     if (writes > 450) fail('A operação ultrapassa o limite seguro. Nenhuma alteração foi aplicada. Selecione um período menor para gerar a prévia.');
     if (phase === 'preview') {
-      tx.create(operation, { uid, command, digest, status: 'preview', expiresAt: new Date(now.getTime() + 10 * 60_000).toISOString(), result, createdAt: FieldValue.serverTimestamp() });
+      tx.create(operation, { uid, command, digest, deletionIds: removals.map(item => item.snapshot.id), deletionScope: { brandId: base.brandId, group: base.recurrenceGroupId || null }, status: 'preview', expiresAt: new Date(now.getTime() + 10 * 60_000).toISOString(), result, createdAt: FieldValue.serverTimestamp() });
       return { ...result, previewId: operation.id };
     }
     if (phase !== 'apply' && phase !== 'confirm') fail('Etapa incompatível.');
-    if (preview && preview.data()!.digest !== digest) fail('As faturas ou associações mudaram. Gere uma nova prévia antes de confirmar.');
+    if (preview && !explicitDeletion && preview.data()!.digest !== digest) fail('As faturas ou associações mudaram. Gere uma nova prévia antes de confirmar.');
     const audit = preview?.ref || operation;
+    for (const archive of archives) tx.create(audit.collection('deleted_invoices').doc(archive.invoiceId), { ...archive, deletedBy: uid, deletedAt: FieldValue.serverTimestamp() });
     for (const { item, changes } of edits) {
       const current = item.snapshot.data()!;
       const next = { ...current, ...changes } as CheckoutInvoice;

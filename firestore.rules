@@ -253,6 +253,10 @@ service cloud.firestore {
     match /invoice_management_operations/{operationId} {
       allow read: if isAdmin();
       allow write: if false;
+      match /deleted_invoices/{invoiceId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
     }
 
     match /checkout_webhook_events/{eventId} {

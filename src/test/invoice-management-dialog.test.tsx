@@ -7,18 +7,21 @@ const summary = { description: 'Mensalidade', amount: 100, first: '2024-01-20', 
 const invoice = { id: 'i', brandId: 'b', dueDate: '2026-12-20', amount: 100, description: 'Mensalidade', status: 'pending' as const, recurrenceGroupId: 'g' };
 const result = { summary, previewId: 'preview', updated: 0, removed: 32, preserved: 6, protected: 2, protectedInvoices: [{ id: 'p', dueDate: '2024-01-20', reason: 'Pagamento confirmado' }] };
 beforeEach(() => { vi.clearAllMocks(); api.callManageInvoices.mockImplementation(async data => data.phase === 'inspect' ? { summary } : result); });
-it('limpeza antiga exige prévia e confirmação explícita; não confia nas contagens do browser', async () => {
+it('limpeza antiga calcula no próprio modal e usa apenas uma confirmação curta', async () => {
   const done = vi.fn(); render(<InvoiceManagementDialog invoice={invoice} mode="series" onComplete={done} onClose={vi.fn()} onEditSingle={vi.fn()} />);
   await waitFor(() => expect(screen.getByText(/38 parcelas/)).toBeVisible());
   fireEvent.change(screen.getByLabelText('Operação da recorrência'), { target: { value: 'delete_before' } });
-  fireEvent.change(screen.getByLabelText('Remover faturas anteriores a'), { target: { value: '2026-09-01' } });
-  fireEvent.click(screen.getByText('Gerar prévia'));
-  await waitFor(() => expect(screen.getByLabelText('Prévia da operação')).toBeVisible());
+  fireEvent.change(screen.getByLabelText('Excluir faturas anteriores a'), { target: { value: '2026-09-01' } });
+  await screen.findByText('32 faturas serão excluídas.');
+  expect(screen.queryByText('Gerar prévia')).not.toBeInTheDocument();
+  expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
   expect(api.callManageInvoices).toHaveBeenLastCalledWith({ phase: 'preview', action: 'delete_before', invoiceId: 'i', before: '2026-09-01' });
-  const confirm = screen.getByRole('button', { name: /Confirmar: alterar/ }); expect(confirm).toBeDisabled(); expect(done).not.toHaveBeenCalled();
-  expect(screen.getByText(/6 faturas serão preservadas/)).toBeVisible(); expect(screen.getByText(/Pagamento confirmado/)).toBeVisible();
-  fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(confirm);
-  await waitFor(() => expect(done).toHaveBeenCalled()); expect(api.callManageInvoices).toHaveBeenLastCalledWith({ phase: 'confirm', previewId: 'preview' });
+  fireEvent.click(screen.getByRole('button', { name: 'Excluir 32 faturas' }));
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  expect(screen.getByText(/Tem certeza que deseja excluir estas 32 faturas/)).toBeVisible();
+  expect(done).not.toHaveBeenCalled(); fireEvent.click(screen.getByText('Confirmar exclusão'));
+  await screen.findByText('Concluir'); fireEvent.click(screen.getByText('Concluir'));
+  expect(done).toHaveBeenCalled(); expect(api.callManageInvoices).toHaveBeenLastCalledWith({ phase: 'confirm', previewId: 'preview' });
 });
 it('editar vencimento não sobrescreve valores e descrições distintos das próximas parcelas', async () => {
   render(<InvoiceManagementDialog invoice={invoice} mode="series" onComplete={vi.fn()} onClose={vi.fn()} onEditSingle={vi.fn()} />);
@@ -35,7 +38,7 @@ it('cancelar uma prévia nunca confirma; edição individual reutiliza callback 
 });
 it('mudança concorrente exige nova prévia e mostra mensagem segura', async () => {
   api.callManageInvoices.mockImplementation(async data => { if (data.phase === 'confirm') throw { code: 'functions/failed-precondition', message: 'As faturas mudaram. Gere uma nova prévia.' }; return data.phase === 'inspect' ? { summary } : result; });
-  render(<InvoiceManagementDialog invoice={invoice} mode="delete" onComplete={vi.fn()} onClose={vi.fn()} onEditSingle={vi.fn()} />);
+  render(<InvoiceManagementDialog invoice={invoice} mode="series" onComplete={vi.fn()} onClose={vi.fn()} onEditSingle={vi.fn()} />);
   await waitFor(() => expect(screen.getByText('Gerar prévia')).toBeEnabled()); fireEvent.click(screen.getByText('Gerar prévia')); await screen.findByLabelText('Prévia da operação');
   fireEvent.click(screen.getByRole('checkbox')); fireEvent.click(screen.getByRole('button', { name: /Confirmar: alterar/ }));
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Gere uma nova prévia')); expect(screen.queryByLabelText('Prévia da operação')).not.toBeInTheDocument();
