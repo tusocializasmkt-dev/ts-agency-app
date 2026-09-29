@@ -14,18 +14,19 @@ test('money and invoice version cover financial edits, not incidental timestamps
   assert.notEqual(checkoutInvoiceVersion(invoice), checkoutInvoiceVersion({ ...invoice, amount: 150 }));
   assert.equal(checkoutInvoiceVersion(invoice), checkoutInvoiceVersion({ ...invoice, status: 'overdue' }));
 });
-test('provider builds Preferences hosted checkout from trusted domain data, without Pix, card fields or webhook', async () => {
-  let body: Record<string, unknown> | undefined;
-  const provider = createMercadoPagoCheckout(async request => { body = request; return { id: 'preference-1', init_point: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=preference-1' }; });
-  const result = await provider.create({ invoiceId: 'inv', externalReference: 'local-payment', amountCents: 12345, currency: 'BRL', description: 'Mensalidade', expiresAt: '2026-10-01T00:00:00Z' });
-  assert.equal(result.preferenceId, 'preference-1'); assert.equal(body?.external_reference, 'local-payment');
-  assert.deepEqual(body?.items, [{ id: 'inv', title: 'Mensalidade', quantity: 1, currency_id: 'BRL', unit_price: 123.45 }]);
-  assert.deepEqual(body?.payment_methods, { excluded_payment_methods: [{ id: 'pix' }] });
-  assert.equal(body?.notification_url, undefined); assert.equal(body?.card_token, undefined); assert.equal(body?.expires, true);
-  assert.deepEqual(body?.back_urls, { success: 'https://ts-agency-app.vercel.app/cliente/financeiro', pending: 'https://ts-agency-app.vercel.app/cliente/financeiro', failure: 'https://ts-agency-app.vercel.app/cliente/financeiro' });
+test('provider builds Orders checkout from authoritative BRL data and persisted idempotency key', async () => {
+  let body: Record<string, unknown> | undefined; let key = '';
+  const provider = createMercadoPagoCheckout(async (request, idempotencyKey) => { body = request; key = idempotencyKey; return { id: 'ORD123', currency: 'BRL', external_reference: 'local-payment', checkout_url: 'https://www.mercadopago.com.br/checkout/v1/redirect?order_id=ORD123' }; });
+  const result = await provider.create({ invoiceId: 'inv', externalReference: 'local-payment', amountCents: 12345, currency: 'BRL', description: 'Mensalidade', expiresAt: '2026-10-01T00:00:00Z', idempotencyKey: 'attempt-1' });
+  assert.equal(result.providerOrderId, 'ORD123'); assert.equal(body?.external_reference, 'local-payment');
+  assert.equal(body?.type, 'online'); assert.equal(body?.processing_mode, 'manual'); assert.equal(body?.total_amount, '123.45');
+  assert.deepEqual(body?.items, [{ title: 'Mensalidade', quantity: 1, unit_price: '123.45', total_amount: '123.45' }]);
+  assert.equal(key, 'attempt-1'); assert.equal(body?.card_token, undefined);
+  assert.deepEqual((body?.config as any).payment_method, { not_allowed_ids: ['pix'] });
 });
+
 test('unsafe or malformed provider results never become redirect targets', async () => {
   for (const value of ['http://www.mercadopago.com.br/checkout/pay', 'https://evil.test/checkout/pay', 'https://www.mercadopago.com.br.evil.test/checkout/pay', 'https://user@www.mercadopago.com.br/checkout/pay', 'https://www.mercadopago.com.br:999/checkout/pay', 'https://www.mercadopago.com.br/other']) assert.throws(() => safeCheckoutUrl(value));
   const provider = createMercadoPagoCheckout(async () => ({ id: 'p', init_point: 'https://evil.test/pay' }));
-  await assert.rejects(provider.create({ invoiceId: 'i', externalReference: 'p', amountCents: 100, currency: 'BRL', description: 'Fatura', expiresAt: '2026-10-01T00:00:00Z' }));
+  await assert.rejects(provider.create({ invoiceId: 'i', externalReference: 'p', amountCents: 100, currency: 'BRL', description: 'Fatura', expiresAt: '2026-10-01T00:00:00Z', idempotencyKey: 'attempt-1' }));
 });

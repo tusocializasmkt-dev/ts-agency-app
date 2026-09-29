@@ -1,8 +1,9 @@
+import { isOrderId } from './mercado-pago-checkout.js';
 import { invoiceAmountCents } from './invoice-checkout-domain.js';
 
 export interface ProviderPayment {
   id: string; externalReference: string; invoiceId: string; preferenceId: string;
-  amountCents: number; currency: string; collectorId: string; liveMode: boolean;
+  amountCents: number; currency: string; collectorId: string; liveMode?: boolean; providerOrderId?: string;
   status: string; updatedAtMs: number; refunded: boolean; associationValid: boolean;
 }
 export interface PaymentReader {
@@ -17,6 +18,29 @@ const externalId = (id: unknown): string => {
 export function createPaymentReader(get: ProviderGet): PaymentReader {
   return {
     async getPayment(id) {
+      if (isOrderId(id)) {
+        const order = await get(`/v1/orders/${id}`);
+        if (order.id !== id) throw new Error('provider-id-mismatch');
+        const amountCents = orderMoney(order.total_amount);
+        const paid = orderMoney(order.total_paid_amount, true);
+        const updatedAtMs = Date.parse(order.last_updated_date);
+        if (!Number.isFinite(updatedAtMs)) throw new Error('invalid-provider-time');
+        const detail = String(order.status_detail || '');
+        const payments = order.transactions?.payments;
+        const refunded = /refund|charge|disput|mediation/.test(detail + ':' + String(order.status))
+          || (Array.isArray(payments) && payments.some((p: any) => /refund|charge|disput/.test(String(p.status) + ':' + String(p.status_detail))));
+        const accredited = order.status === 'processed' && detail === 'accredited' && paid === amountCents && !refunded;
+        const status = accredited ? 'approved' : refunded ? 'refunded'
+          : ['created', 'processing', 'action_required'].includes(order.status) ? 'pending'
+          : order.status === 'failed' ? 'rejected' : order.status === 'canceled' ? 'cancelled' : 'unknown';
+        return {
+          id, providerOrderId: id, externalReference: typeof order.external_reference === 'string' ? order.external_reference : '',
+          invoiceId: '', preferenceId: '', amountCents, currency: String(order.currency || ''),
+          collectorId: externalId(order.user_id), ...(typeof order.live_mode === 'boolean' ? { liveMode: order.live_mode } : {}),
+          status, updatedAtMs, refunded,
+          associationValid: order.type === 'online' && order.processing_mode === 'manual',
+        };
+      }
       externalId(id);
       const payment = await get(`/v1/payments/${id}`);
       if (externalId(payment.id) !== id) throw new Error('provider-id-mismatch');
@@ -54,9 +78,16 @@ export function createPaymentReader(get: ProviderGet): PaymentReader {
 export function mercadoPagoGet(accessToken: string): ProviderGet {
   if (!accessToken.trim()) throw new Error('checkout-not-configured');
   return async path => {
-    if (!/^\/(v1\/payments(?:\/|\?)|merchant_orders\/|checkout\/preferences\/)/.test(path)) throw new Error('invalid-provider-path');
+    if (!/^\/(v1\/orders\/ORD[A-Za-z0-9]+$|v1\/payments(?:\/|\?)|merchant_orders\/|checkout\/preferences\/)/.test(path)) throw new Error('invalid-provider-path');
     const response = await fetch(`https://api.mercadopago.com${path}`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(5000), redirect: 'error' });
     if (!response.ok) throw new Error('provider-query-failed');
     return await response.json() as Record<string, unknown>;
   };
+}
+
+// Orders monetary fields are decimal strings. Reject exponent, rounding and coercion.
+function orderMoney(value: unknown, allowZero = false): number {
+  if (typeof value !== 'string' || !/^\d+(?:\.\d{1,2})?$/.test(value)) throw new Error('invalid-order-money');
+  if (allowZero && Number(value) === 0) return 0;
+  return invoiceAmountCents(Number(value));
 }

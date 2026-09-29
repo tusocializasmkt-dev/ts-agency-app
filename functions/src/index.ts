@@ -9,7 +9,6 @@ import { authenticateInternal, hashPassword, normalizeEmail, type InternalCreden
 import { assertAdminAccess, createClientAccess as createAccess, createClientWithAccess as createWithAccess, resetClientPassword as resetPassword, setClientAccessStatus as setAccessStatus, type ClientAccessDependencies } from './user-access.js';
 import { createMemoryRateLimiter, executeMarketingAi, MarketingAiError, type MarketingAiRole } from './marketing-ai.js';
 import { createTeamMember as createTeam, resetTeamPassword as resetTeam, updateTeamMember as updateTeam, type TeamAccessDependencies, type TeamMemberInput } from './team-access.js';
-import { synchronizeBrandShowcase } from './brand-showcase.js';
 import { operationalBrand, publicAgency } from './operational-projection.js';
 
 const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58';
@@ -127,13 +126,9 @@ function getAdminServices(): Promise<AdminServices> {
 }
 
 export const syncBrandShowcase = onDocumentWritten({ document: 'brands/{brandId}', database: databaseId, region: 'southamerica-east1' }, async event => {
-  const { db, FieldValue } = await getAdminServices();
-  const brandId = event.params.brandId;
-  const after = event.data?.after;
-  await synchronizeBrandShowcase(brandId, after?.exists ? (after.data() as Record<string, unknown>) : null, {
-    upsert: async (id, projection) => { await db.collection('brand_showcase').doc(id).set({ ...projection, updatedAt: FieldValue.serverTimestamp() }); },
-    remove: async id => { await db.collection('brand_showcase').doc(id).delete(); },
-  });
+  const { db } = await getAdminServices();
+  const { refreshBrandShowcase } = await import('./brand-showcase-store.js');
+  await refreshBrandShowcase(db, event.params.brandId);
 });
 
 const limitId = (email: string) => createHash('sha256').update(email).digest('hex');

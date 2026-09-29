@@ -13,7 +13,7 @@ const show = () => render(<InvoicePaymentOptions invoice={{ id: 'invoice', brand
 it('botão usa somente URL do backend e não confirma pagamento', async () => {
   let resolve!: (value: unknown) => void;
   state.create.mockImplementation(() => new Promise(done => { resolve = done; }));
-  show(); fireEvent.click(screen.getByRole('button', { name: 'Pagar com Mercado Pago' }));
+  show(); fireEvent.click(screen.getByRole('button', { name: 'Pagar com outro meio de pagamento' }));
   expect(screen.getByRole('button', { name: 'Abrindo checkout...' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Abrindo checkout...' }));
   expect(state.create).toHaveBeenCalledExactlyOnceWith('invoice');
@@ -24,7 +24,7 @@ it('botão usa somente URL do backend e não confirma pagamento', async () => {
 });
 it('falha não redireciona ao link global e mostra mensagem segura', async () => {
   state.create.mockRejectedValue({ code: 'functions/permission-denied', message: 'private' });
-  show(); fireEvent.click(screen.getByRole('button', { name: 'Pagar com Mercado Pago' }));
+  show(); fireEvent.click(screen.getByRole('button', { name: 'Pagar com outro meio de pagamento' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Você não tem permissão');
   expect(state.redirect).not.toHaveBeenCalled();
 });

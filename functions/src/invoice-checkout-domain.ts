@@ -2,10 +2,10 @@ import { createHash } from 'node:crypto';
 import { HttpsError } from 'firebase-functions/v2/https';
 
 export interface CheckoutInvoice { brandId: string; amount: number; currency?: string; description?: string; dueDate: string; status: string }
-export interface CheckoutInput { invoiceId: string; externalReference: string; amountCents: number; currency: 'BRL'; description: string; expiresAt: string }
-export interface HostedCheckout { preferenceId: string; checkoutUrl: string }
+export interface CheckoutInput { invoiceId: string; externalReference: string; amountCents: number; currency: 'BRL'; description: string; expiresAt: string; idempotencyKey: string }
+export interface HostedCheckout { providerOrderId: string; checkoutUrl: string }
 export interface CheckoutProvider { create(input: CheckoutInput): Promise<HostedCheckout> }
-// Only an explicit rejection known to have created no preference permits another POST.
+// Only an explicit rejection known to have created no order permits another POST.
 export class CheckoutRejected extends Error { constructor() { super('checkout-rejected'); } }
 export function checkoutInvoiceId(data: unknown): string {
   const id = (data as { invoiceId?: unknown } | null)?.invoiceId;

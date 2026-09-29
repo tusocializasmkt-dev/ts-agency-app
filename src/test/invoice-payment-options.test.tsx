@@ -22,7 +22,7 @@ describe('meios simples de pagamento', () => {
     await waitFor(() => expect(state.error).toHaveBeenCalled()); expect(screen.getByText(config.pixKey!)).toBeVisible();
   });
   it('checkout desativado não usa fallback global nem coleta cartão', () => {
-    show(); expect(screen.getByRole('button', { name: 'Pagar com Mercado Pago' })).toBeDisabled(); expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    show(); expect(screen.queryByRole('button', { name: 'Pagar com outro meio de pagamento' })).not.toBeInTheDocument(); expect(screen.queryByText('Pagar com Mercado Pago')).not.toBeInTheDocument(); expect(screen.queryByRole('link')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
   it('ausência de meios ou URLs inválidas não cria opções quebradas', () => {

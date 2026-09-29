@@ -40,6 +40,15 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
 
+    match /agency/payments/pix-qr/{fileName} {
+      allow read: if isSignedIn();
+      allow create: if resource == null && isAdmin()
+        && request.resource.size > 0
+        && request.resource.size <= 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      allow update, delete: if false;
+    }
+
     match /agency/logo/{fileName} {
       allow read: if isSignedIn();
       allow write: if isAdmin();

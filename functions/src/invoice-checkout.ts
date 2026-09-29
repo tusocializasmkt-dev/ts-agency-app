@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isOrderId } from './mercado-pago-checkout.js';
 import { FieldValue, type Firestore, type Transaction } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
 import { assertCheckoutInvoice, checkoutInvoiceId, checkoutInvoiceVersion, CheckoutRejected, invoiceAmountCents, safeCheckoutUrl, type CheckoutInvoice, type CheckoutProvider } from './invoice-checkout-domain.js';
@@ -30,12 +31,12 @@ export async function createInvoiceCheckout(db: Firestore, uid: string, data: un
       const payment = stored.data();
       if (!payment || payment.integrationMode !== 'checkout_pro' || payment.invoiceVersion !== version) throw unavailable();
       if (['ready', 'declined'].includes(payment.status) && !payment.requiresReview && Date.parse(payment.expiresAt) > now().getTime()) return { reuse: { checkoutUrl: safeCheckoutUrl(payment.checkoutUrl), expiresAt: payment.expiresAt as string } };
-      // An expired preference, lost response or dead worker is not proof that no payment exists.
+      // An expired checkout, lost response or dead worker is not proof that no payment exists.
       if (payment.status !== 'failed') throw unavailable();
     }
     const expiresAt = new Date(now().getTime() + 60 * 60_000).toISOString();
-    const input = { invoiceId: id, externalReference: candidate.id, amountCents: invoiceAmountCents(invoice.amount), currency: 'BRL' as const, description: String(invoice.description || 'Fatura TS Agency').slice(0, 120), expiresAt };
-    tx.create(candidate, { ...input, brandId: invoice.brandId, provider: 'mercado_pago', integrationMode: 'checkout_pro', invoiceVersion: version, idempotencyKey: candidate.id, reservationOwner: owner, status: 'creating', providerStatus: null, requiresReview: false, reconciliationRequired: false, createdBy: uid, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+    const input = { idempotencyKey: randomUUID(), invoiceId: id, externalReference: candidate.id, amountCents: invoiceAmountCents(invoice.amount), currency: 'BRL' as const, description: String(invoice.description || 'Fatura TS Agency').slice(0, 120), expiresAt };
+    tx.create(candidate, { ...input, brandId: invoice.brandId, provider: 'mercado_pago', integrationMode: 'checkout_pro', invoiceVersion: version, apiVersion: 'orders', expectedAmount: input.amountCents / 100, reservationOwner: owner, status: 'creating', providerStatus: null, requiresReview: false, reconciliationRequired: false, createdBy: uid, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
     tx.set(lock, { paymentId: candidate.id, updatedAt: FieldValue.serverTimestamp() });
     return { input, version };
   });
@@ -45,7 +46,7 @@ export async function createInvoiceCheckout(db: Firestore, uid: string, data: un
   try {
     // Outside Firestore transaction: retried callbacks never issue external POSTs.
     result = await provider.create(input);
-    if (!result.preferenceId || result.preferenceId.length > 256) throw new Error('invalid-preference');
+    if (!isOrderId(result.providerOrderId)) throw new Error('invalid-order');
     result.checkoutUrl = safeCheckoutUrl(result.checkoutUrl);
   } catch (error) {
     await db.runTransaction(async tx => {
@@ -62,12 +63,12 @@ export async function createInvoiceCheckout(db: Firestore, uid: string, data: un
     if (record.data()?.reservationOwner !== owner) throw unavailable();
     if (record.data()?.status !== 'creating') {
       // A webhook may validate the reserved checkout before this POST response is committed.
-      if (record.data()?.preferenceId === result.preferenceId) tx.update(candidate, { checkoutUrl: result.checkoutUrl, updatedAt: FieldValue.serverTimestamp() });
+      if (record.data()?.providerOrderId === result.providerOrderId) tx.update(candidate, { checkoutUrl: result.checkoutUrl, updatedAt: FieldValue.serverTimestamp() });
       return false;
     }
     const invoice = invoiceSnapshot.data() as CheckoutInvoice | undefined;
     const unchanged = invoice && ['pending', 'overdue'].includes(invoice.status) && checkoutInvoiceVersion(invoice) === reservation.version;
-    tx.update(candidate, { preferenceId: result.preferenceId, checkoutUrl: result.checkoutUrl, status: unchanged ? 'ready' : 'requires_review', requiresReview: !unchanged, reconciliationRequired: !unchanged, updatedAt: FieldValue.serverTimestamp() });
+    tx.update(candidate, { providerOrderId: result.providerOrderId, checkoutUrl: result.checkoutUrl, status: unchanged ? 'ready' : 'requires_review', requiresReview: !unchanged, reconciliationRequired: !unchanged, updatedAt: FieldValue.serverTimestamp() });
     return Boolean(unchanged);
   });
   if (!ready) throw unavailable();

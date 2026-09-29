@@ -1,6 +1,6 @@
 import { applicationDefault, getApps, initializeApp } from 'firebase-admin/app';
-import { FieldValue, getFirestore } from 'firebase-admin/firestore';
-import { buildBrandShowcaseProjection } from '../lib/brand-showcase.js';
+import { getFirestore } from 'firebase-admin/firestore';
+import { rebuildBrandShowcase } from '../lib/brand-showcase-store.js';
 
 const EXPECTED_PROJECT_ID = 'gen-lang-client-0975642231';
 const FIRESTORE_DATABASE_ID = 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58';
@@ -38,39 +38,10 @@ if (apply && confirmedProjectId !== EXPECTED_PROJECT_ID) {
 
 const app = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId: EXPECTED_PROJECT_ID });
 const db = getFirestore(app, FIRESTORE_DATABASE_ID);
-const [brands, existingShowcase] = await Promise.all([
-  db.collection('brands').get(),
-  db.collection('brand_showcase').get(),
-]);
-const existingById = new Map(existingShowcase.docs.map(snapshot => [snapshot.id, snapshot.data()]));
-
-const planned = brands.docs.map(snapshot => ({
-  id: snapshot.id,
-  projection: buildBrandShowcaseProjection(snapshot.data()),
-}));
-const changed = planned.filter(({ id, projection }) => {
-  const current = existingById.get(id);
-  return !current
-    || current.displayName !== projection.displayName
-    || current.logoUrl !== projection.logoUrl
-    || current.visible !== projection.visible;
-});
-
-console.log(`[brand-showcase] Brands found: ${brands.size}`);
-console.log(`[brand-showcase] Existing showcase documents: ${existingShowcase.size}`);
-console.log(`[brand-showcase] Documents that would be written: ${changed.length}`);
-console.log(`[brand-showcase] Unchanged documents: ${planned.length - changed.length}`);
-
-if (!apply) {
-  console.log('[brand-showcase] DRY RUN complete. No writes were performed.');
-  process.exit(0);
-}
-
-for (let offset = 0; offset < changed.length; offset += 400) {
-  const batch = db.batch();
-  for (const { id, projection } of changed.slice(offset, offset + 400)) {
-    batch.set(db.collection('brand_showcase').doc(id), { ...projection, updatedAt: FieldValue.serverTimestamp() });
-  }
-  await batch.commit();
-}
-console.log(`[brand-showcase] APPLY complete. ${changed.length} brand_showcase document(s) written.`);
+const result = await rebuildBrandShowcase(db, apply);
+console.log(`[brand-showcase] Brands found: ${result.brands}`);
+console.log(`[brand-showcase] Existing showcase documents: ${result.projections}`);
+console.log(`[brand-showcase] Documents ${apply ? 'written' : 'to write'}: ${result.written}`);
+console.log(`[brand-showcase] Orphans ${apply ? 'removed' : 'to remove'}: ${result.removed}`);
+console.log(`[brand-showcase] Unchanged documents: ${result.unchanged}`);
+console.log(`[brand-showcase] ${apply ? 'APPLY complete.' : 'DRY RUN complete. No writes were performed.'}`);

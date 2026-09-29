@@ -142,8 +142,8 @@ test('reconciliation pending/unknown, empty search and early event recovery are 
 test('webhook during creation does not get overwritten by late preference response', async () => {
   await db.doc('invoices/creating-race').set(invoice);
   const provider = { async create(input) {
-    const remote = { id: String(++sequence), externalReference: input.externalReference, invoiceId: input.invoiceId, preferenceId: 'pref-race', amountCents: 12345, currency: 'BRL', collectorId: '99', liveMode: false, status: 'approved', updatedAtMs: 1000, refunded: false, associationValid: true };
-    await apply(remote); return { preferenceId: 'pref-race', checkoutUrl: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=p' };
+    const remote = { id: 'ORDrace', providerOrderId: 'ORDrace', externalReference: input.externalReference, invoiceId: input.invoiceId, preferenceId: '', amountCents: 12345, currency: 'BRL', collectorId: '99', liveMode: false, status: 'approved', updatedAtMs: 1000, refunded: false, associationValid: true };
+    await apply(remote); return { providerOrderId: 'ORDrace', checkoutUrl: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=p' };
   } };
   await assert.rejects(createInvoiceCheckout(db, 'client', { invoiceId: 'creating-race' }, provider), { code: 'failed-precondition' });
   const lock = await data('invoice_checkout_locks/creating-race'); assert.equal((await data(`payments/${lock.paymentId}`)).status, 'approved'); assert.equal((await data('invoices/creating-race')).status, 'paid');

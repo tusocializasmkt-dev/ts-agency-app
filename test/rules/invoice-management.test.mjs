@@ -160,7 +160,7 @@ test('limite de série e ownership divergente falham sem aplicação parcial', a
 });
 test('edição usa versão nova no checkout; reserva existente bloqueia corrida de edição', async () => {
   await put('version'); await edit('version', { amount: 1500 }); let calls = 0;
-  const provider = { async create(input) { calls++; assert.equal(input.amountCents, 150000); await assert.rejects(edit('version', { amount: 2000 }), { code: 'failed-precondition' }); return { preferenceId: 'p', checkoutUrl: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=p' }; } };
+  const provider = { async create(input) { calls++; assert.equal(input.amountCents, 150000); await assert.rejects(edit('version', { amount: 2000 }), { code: 'failed-precondition' }); return { providerOrderId: 'ORDversion', checkoutUrl: 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=p' }; } };
   await createInvoiceCheckout(db, 'client', { invoiceId: 'version' }, provider); const payment = (await db.collection('payments').where('invoiceId', '==', 'version').get()).docs[0].data(); assert.equal(payment.invoiceVersion, checkoutInvoiceVersion(await read('version')));
   // Simulate an out-of-band privileged change to verify old checkout is never reused.
   await db.doc('invoices/version').update({ amount: 2000 }); await assert.rejects(createInvoiceCheckout(db, 'client', { invoiceId: 'version' }, provider), { code: 'failed-precondition' }); assert.equal(calls, 1);

@@ -14,7 +14,7 @@ const db = getFirestore(app, 'checkout-test-database');
 const invoice = { brandId: 'client', amount: 150.25, currency: 'BRL', dueDate: '2026-10-01', description: 'Mensalidade', status: 'pending', recurrenceGroupId: 'series' };
 const url = 'https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=p';
 const put = (id, extra = {}) => db.doc(`invoices/${id}`).set({ ...invoice, ...extra });
-const good = () => { const calls = []; return { calls, async create(input) { calls.push(input); return { preferenceId: 'p', checkoutUrl: url }; } }; };
+const good = () => { const calls = []; return { calls, async create(input) { calls.push(input); return { providerOrderId: 'ORD123', checkoutUrl: url }; } }; };
 before(async () => { await db.doc('brands/client').set({ accessEnabled: true }); await db.doc('brands/disabled').set({ accessEnabled: false }); await db.doc('admins/admin').set({ active: true }); await db.doc('admins/inactive').set({ active: false }); await db.doc('team_members/team').set({ active: true, role: 'manager' }); });
 after(async () => { await db.terminate(); await deleteApp(app); });
 test('own invoice, authoritative amount and reuse; no invoice mutation or settlement from redirects', async () => {
@@ -23,7 +23,7 @@ test('own invoice, authoritative amount and reuse; no invoice mutation or settle
   assert.deepEqual(Object.keys(response).sort(), ['checkoutUrl', 'expiresAt']); assert.equal(response.checkoutUrl, url);
   assert.equal(provider.calls[0].amountCents, 15025); assert.equal(provider.calls[0].description, 'Mensalidade'); assert.equal(provider.calls[0].currency, 'BRL');
   await createInvoiceCheckout(db, 'client', { invoiceId: 'own', success: true, payment_status: 'approved' }, provider); assert.equal(provider.calls.length, 1);
-  const record = (await db.collection('payments').where('invoiceId', '==', 'own').get()).docs[0]; assert.notEqual(record.id, record.data().preferenceId);
+  const record = (await db.collection('payments').where('invoiceId', '==', 'own').get()).docs[0]; assert.equal(record.data().providerOrderId, 'ORD123'); assert.equal(record.data().apiVersion, 'orders'); assert.equal(record.data().externalReference, record.id); assert.match(record.data().idempotencyKey, /^[a-f0-9-]{36}$/);
   assert.deepEqual((await db.doc('invoices/own').get()).data(), invoice); assert.equal((await db.doc('invoices/next').get()).data().status, 'pending');
 });
 test('authorization: missing auth, foreign invoice, team, inactive admin, disabled client, absent invoice', async () => {
@@ -57,9 +57,9 @@ test('persist failure after external success never issues a second POST', async 
   await assert.rejects(createInvoiceCheckout(db, 'client', { invoiceId: 'persist-failure' }, provider), { code: 'failed-precondition' }); assert.equal(provider.calls.length, 1);
 });
 test('financial edit during request quarantines preference; no URL reused after edits or expiry', async () => {
-  await put('edited'); const provider = { async create() { await db.doc('invoices/edited').update({ amount: 999 }); return { preferenceId: 'p-edited', checkoutUrl: url }; } };
+  await put('edited'); const provider = { async create() { await db.doc('invoices/edited').update({ amount: 999 }); return { providerOrderId: 'ORDedited', checkoutUrl: url }; } };
   await assert.rejects(createInvoiceCheckout(db, 'client', { invoiceId: 'edited' }, provider), { code: 'failed-precondition' });
-  const record = (await db.collection('payments').where('invoiceId', '==', 'edited').get()).docs[0].data(); assert.equal(record.status, 'requires_review'); assert.equal(record.preferenceId, 'p-edited');
+  const record = (await db.collection('payments').where('invoiceId', '==', 'edited').get()).docs[0].data(); assert.equal(record.status, 'requires_review'); assert.equal(record.providerOrderId, 'ORDedited');
   await put('expired'); const p = good(); await createInvoiceCheckout(db, 'client', { invoiceId: 'expired' }, p, () => new Date('2026-09-01T00:00:00Z'));
   await assert.rejects(createInvoiceCheckout(db, 'client', { invoiceId: 'expired' }, p, () => new Date('2026-09-02T00:00:00Z')), { code: 'failed-precondition' }); assert.equal(p.calls.length, 1);
 });

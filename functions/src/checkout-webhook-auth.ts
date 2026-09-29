@@ -1,3 +1,4 @@
+import { isOrderId } from './mercado-pago-checkout.js';
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export class WebhookInputError extends Error {
@@ -23,8 +24,8 @@ export function verifyCheckoutNotification(input: WebhookInput, secret: string, 
   const body = input.body as { type?: unknown; data?: { id?: unknown } } | null;
   if (!body || typeof body !== 'object' || typeof body.type !== 'string' || !body.data || String(body.data.id) !== id) throw new WebhookInputError(400);
   if (input.query.type !== undefined && input.query.type !== body.type) throw new WebhookInputError(400);
-  if (body.type !== 'payment') return null;
-  if (!/^[0-9]{1,32}$/.test(id)) throw new WebhookInputError(400);
+  if (!['order', 'payment'].includes(body.type)) return null;
+  if (body.type === 'order' ? !isOrderId(id) : !/^[0-9]{1,32}$/.test(id)) throw new WebhookInputError(400);
   // Body event IDs/status/amount are unsigned and never used for authorization or settlement.
   return { eventId: createHash('sha256').update(manifest).digest('hex'), externalPaymentId: id, stale: now - time > 600_000 };
 }

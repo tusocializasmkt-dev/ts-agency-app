@@ -132,3 +132,21 @@ test('financeiro simples: cliente lê configuração e fatura informada; não gr
   await assertFails(updateDoc(doc(client, 'agency_config/default'), { mercadopagoPaymentLink: 'https://mpago.la/other' }));
   await assertFails(updateDoc(doc(admin, 'invoices/reported'), { description: 'Revisada pelo admin' }));
 });
+
+test('Pix QR: Admin cria imagem válida; clientes/equipe não alteram; tamanho/tipo e imutabilidade protegidos', async () => {
+  const admin = environment.authenticatedContext('admin', { admin: true }).storage();
+  const path = 'agency/payments/pix-qr/qr.png';
+  await assertSucceeds(uploadBytes(ref(admin, path), new Uint8Array([1, 2]), { contentType: 'image/png' }));
+  await assertFails(uploadBytes(ref(admin, path), new Uint8Array([3]), { contentType: 'image/png' }));
+  await assertFails(deleteObject(ref(admin, path)));
+  for (const uid of ['client-a', 'team-active']) {
+    const storage = environment.authenticatedContext(uid).storage();
+    await assertSucceeds(getBytes(ref(storage, path)));
+    await assertFails(uploadBytes(ref(storage, `agency/payments/pix-qr/${uid}.png`), new Uint8Array([1]), { contentType: 'image/png' }));
+    await assertFails(deleteObject(ref(storage, path)));
+    await assertFails(updateDoc(doc(environment.authenticatedContext(uid).firestore(), 'agency_config/default'), { pixQrCodeUrl: 'https://evil.test/qr.png' }));
+  }
+  await assertFails(getBytes(ref(environment.unauthenticatedContext().storage(), path)));
+  await assertFails(uploadBytes(ref(admin, 'agency/payments/pix-qr/invalid.svg'), new Uint8Array([1]), { contentType: 'image/svg+xml' }));
+  await assertFails(uploadBytes(ref(admin, 'agency/payments/pix-qr/large.png'), new Uint8Array(5 * 1024 * 1024 + 1), { contentType: 'image/png' }));
+});

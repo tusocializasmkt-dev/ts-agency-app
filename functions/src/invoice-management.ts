@@ -74,7 +74,7 @@ function protectedReason(item: Loaded, deleting: boolean): string | null {
 function deletionReason(item: Loaded): string | null {
   const invoice = item.snapshot.data()!;
   const externalEvidence = (data: Record<string, any>) => Boolean(
-    data.settlementPaymentId || data.externalPaymentId || data.preferenceId || data.paymentId
+    data.settlementPaymentId || data.externalPaymentId || data.providerOrderId || data.preferenceId || data.paymentId
     || (data.confirmationSource && !['manual', 'admin'].includes(data.confirmationSource))
     || (data.provider && !['manual', 'admin'].includes(data.provider))
     || (data.action === 'payment_confirmed' && data.actorRole === 'system')
