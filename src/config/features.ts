@@ -1,6 +1,6 @@
 export const FEATURES = Object.freeze({
   automatedPayments: false,
-  invoiceCheckout: false,
+  invoiceCheckout: true,
   invoiceDueSoonDays: 3,
 });
 
