@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn(), copy: vi.fn() }));
+vi.mock('../config/features', () => ({ FEATURES: { invoiceCheckout: false } }));
 vi.mock('../hooks', () => ({ useFeedback: () => state }));
 vi.mock('../services/clipboard.service', () => ({ copyText: state.copy }));
 import InvoicePaymentOptions from '../components/finance/InvoicePaymentOptions';
@@ -27,13 +28,41 @@ describe('meios simples de pagamento', () => {
   });
   it('ausência de meios ou URLs inválidas não cria opções quebradas', () => {
     show({}, { ...config, pixKey: '', pixQrCodeUrl: 'javascript:bad()', mercadopagoPaymentLink: 'https://evil.test/pay' });
-    expect(screen.queryByRole('img')).not.toBeInTheDocument(); expect(screen.queryByRole('link')).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Copiar Pix' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument(); expect(screen.queryByRole('link')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Copiar Pix' })).toBeVisible();
+    expect(screen.getByText('39930356000160')).toBeVisible();
   });
   it('QR com erro desaparece, preservando chave e alternativas', () => {
     show(); fireEvent.error(screen.getByAltText('QR Code Pix da agência')); expect(screen.queryByRole('img')).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Copiar Pix' })).toBeVisible();
   });
-  it('chave específica da fatura não recebe QR de outra conta', () => {
+  it('chave específica da fatura não recebe QR de outra conta', async () => {
     show({ invoice: { ...invoice, pixKey: 'outra-chave' } }); expect(screen.queryByRole('img')).not.toBeInTheDocument(); expect(screen.getByText('outra-chave')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar Pix' }));
+    await waitFor(() => expect(state.copy).toHaveBeenCalledWith('outra-chave'));
+  });
+  it.each(['pending', 'overdue'] as const)('exibe e copia fallback sem configuração nem QR para %s', async status => {
+    show({ invoice: { ...invoice, status }, config: undefined });
+    expect(screen.getByText('39930356000160')).toBeVisible();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pix ainda não configurado. Fale com a agência.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar Pix' }));
+    await waitFor(() => expect(state.success).toHaveBeenCalledWith('Pix copiado!'));
+    expect(state.copy).toHaveBeenCalledExactlyOnceWith('39930356000160');
+  });
+  it('ignora chave da fatura em branco e mantém configuração sem QR', () => {
+    show({ invoice: { ...invoice, pixKey: '   ' } }, { ...config, pixQrCodeUrl: undefined });
+    expect(screen.getByText(config.pixKey!)).toBeVisible();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copiar Pix' })).toBeVisible();
+  });
+  it('usa fallback quando ambas as chaves contêm somente espaços', () => {
+    show({ invoice: { ...invoice, pixKey: '  ' } }, { ...config, pixKey: '  ', pixQrCodeUrl: undefined });
+    expect(screen.getByText('39930356000160')).toBeVisible();
+  });
+  it('não oferece novo pagamento após informar pagamento mesmo sem configuração', () => {
+    show({ invoice: { ...invoice, status: 'payment_reported' }, config: undefined });
+    expect(screen.getByRole('status')).toHaveTextContent('Pagamento informado. Aguardando confirmação.');
+    expect(screen.queryByText('39930356000160')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
   it('cliente informa; estado informado esconde ação e não diz pago', () => {
     const onReport = vi.fn(); const view = show({ onReport }); fireEvent.click(screen.getByRole('button', { name: 'Já fiz o pagamento' })); expect(onReport).toHaveBeenCalledOnce();

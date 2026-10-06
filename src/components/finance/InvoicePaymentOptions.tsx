@@ -7,6 +7,9 @@ import { useInvoiceCheckout } from '../../hooks/useInvoiceCheckout';
 import { redirectToInvoiceCheckout } from '../../services/invoice-checkout.service';
 import { FEATURES } from '../../config/features';
 
+const DEFAULT_AGENCY_PIX_KEY = '39930356000160';
+const normalizePixKey = (value?: string) => typeof value === 'string' ? value.trim() : '';
+
 export default function InvoicePaymentOptions({ invoice, config, isAdmin, busy, onReport }: { invoice: Invoice; config?: AgencyConfig; isAdmin: boolean; busy: boolean; onReport: () => void }) {
   const feedback = useFeedback();
   const [copying, setCopying] = useState(false);
@@ -18,9 +21,11 @@ export default function InvoicePaymentOptions({ invoice, config, isAdmin, busy, 
   };
   if (invoice.status === 'payment_reported') return <p role="status" className="w-full rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-medium text-blue-800">{isAdmin ? 'Pagamento informado pelo cliente. Confira o recebimento e confirme abaixo.' : 'Pagamento informado. Aguardando confirmação.'}</p>;
   if (!['pending', 'overdue'].includes(invoice.status)) return null;
-  const key = (invoice.pixKey || config?.pixKey)?.trim();
+  const invoiceKey = normalizePixKey(invoice.pixKey);
+  const configKey = normalizePixKey(config?.pixKey);
+  const key = invoiceKey || configKey || DEFAULT_AGENCY_PIX_KEY;
   // A legacy invoice may override the agency key. Never pair it with a different account's QR.
-  const qr = !invoice.pixKey || invoice.pixKey.trim() === config?.pixKey?.trim() ? safeHttpsUrl(config?.pixQrCodeUrl) : undefined;
+  const qr = !invoiceKey || invoiceKey === configKey ? safeHttpsUrl(config?.pixQrCodeUrl) : undefined;
   const copy = async () => {
     if (!key) return;
     setCopying(true);
@@ -35,7 +40,7 @@ export default function InvoicePaymentOptions({ invoice, config, isAdmin, busy, 
       {key && <><p className="break-all text-sm"><span className="block text-xs text-zinc-500">Chave Pix</span>{key}</p><button type="button" disabled={copying} onClick={() => void copy()} className="min-h-11 rounded-lg border bg-white px-4 text-sm font-bold disabled:opacity-50">{copying ? 'Copiando...' : 'Copiar Pix'}</button></>}
     </div>}
     {FEATURES.invoiceCheckout && <div><button type="button" disabled={busy || checkout.loading} onClick={() => void openCheckout()} className="min-h-11 rounded-lg bg-black px-4 text-sm font-bold text-white disabled:opacity-50">{checkout.loading ? 'Abrindo checkout...' : 'Pagar com outro meio de pagamento'}</button><p className="mt-2 text-xs text-zinc-500">Pagamento processado em ambiente seguro.</p>{checkout.error && <p role="alert" className="mt-2 text-sm text-red-700">{checkout.error}</p>}</div>}
-    {(key || qr) ? <p className="text-xs text-zinc-600">Confira o destinatário e o valor da fatura antes de pagar por Pix. Depois, informe o pagamento para conferência da agência.</p> : <p className="text-sm text-zinc-500">Pix ainda não configurado. Fale com a agência.</p>}
+    <p className="text-xs text-zinc-600">Confira o destinatário e o valor da fatura antes de pagar por Pix. Depois, informe o pagamento para conferência da agência.</p>
     {!isAdmin && <button type="button" disabled={busy} onClick={onReport} className="min-h-11 rounded-lg border border-black bg-white px-4 text-sm font-bold disabled:opacity-50">Já fiz o pagamento</button>}
   </section>;
 }

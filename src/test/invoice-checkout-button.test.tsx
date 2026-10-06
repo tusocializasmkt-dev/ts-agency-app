@@ -13,7 +13,11 @@ const show = () => render(<InvoicePaymentOptions invoice={{ id: 'invoice', brand
 it('botão usa somente URL do backend e não confirma pagamento', async () => {
   let resolve!: (value: unknown) => void;
   state.create.mockImplementation(() => new Promise(done => { resolve = done; }));
-  show(); fireEvent.click(screen.getByRole('button', { name: 'Pagar com outro meio de pagamento' }));
+  show();
+  expect(screen.getByText('39930356000160')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Copiar Pix' })).toBeVisible();
+  expect(screen.getByText('Pagamento processado em ambiente seguro.')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Pagar com outro meio de pagamento' }));
   expect(screen.getByRole('button', { name: 'Abrindo checkout...' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Abrindo checkout...' }));
   expect(state.create).toHaveBeenCalledExactlyOnceWith('invoice');
