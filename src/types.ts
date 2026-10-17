@@ -96,6 +96,7 @@ export interface BrandShowcaseItem {
 
 export interface Post {
   id: string;
+  title?: string;
   brandId: string;
   type: PostType;
   socialNetwork: string;
@@ -107,6 +108,10 @@ export interface Post {
   coverMediaId?: string;
   scheduledDate: ISODateString;
   status: PostStatus;
+  published?: boolean;
+  publishedAt?: FirestoreTimestamp;
+  publishedBy?: string;
+  approvedAt?: FirestoreTimestamp;
   feedback?: string;
   createdAt?: FirestoreTimestamp;
   updatedAt?: FirestoreTimestamp;

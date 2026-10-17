@@ -29,7 +29,7 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand, onManage
               {brand.logoUrl ? <img src={brand.logoUrl} alt={`Logotipo de ${brand.name}`} className="h-full w-full object-cover" loading="lazy" /> : brand.name.charAt(0).toUpperCase()}
             </div>
             <div className="min-w-0">
-              <h3 className="truncate text-xl font-bold tracking-tight sm:text-2xl">{brand.name}</h3>
+              <h3 className="break-words text-xl font-bold tracking-tight sm:text-2xl">{brand.name}</h3>
               <div className="mt-2 flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-6">
                 {brand.website && (
                   <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
@@ -39,13 +39,13 @@ const ClientList: React.FC<ClientListProps> = ({ brands, onSelectBrand, onManage
                 )}
                 <div className="flex items-center gap-2 text-zinc-400 text-xs font-medium">
                   <Phone className="w-3.5 h-3.5" />
-                  <span>{brand.phone || 'S/ Telefone'}</span>
+                  <span>{brand.phone || 'Telefone não informado'}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-8">
+          <div className="flex w-full flex-wrap items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-8">
              <div className={cn(
                 "px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest border",
                 getBrandStatusBadgeClass(brand.status)

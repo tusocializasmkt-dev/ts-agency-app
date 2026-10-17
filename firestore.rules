@@ -58,12 +58,28 @@ service cloud.firestore {
     function isValidClientDecision() {
       return existing().status == 'pending'
         && incoming().status in ['approved', 'rejected', 'changes_requested']
-        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'feedback', 'updatedAt'])
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'feedback', 'updatedAt', 'approvedAt'])
+        && validApprovalTimestamp()
         && (incoming().status == 'approved'
           ? incoming().feedback == ''
           : incoming().feedback is string
             && incoming().feedback.size() >= 3
             && incoming().feedback.size() <= 1000);
+    }
+
+    function validApprovalTimestamp() {
+      return !incoming().diff(existing()).affectedKeys().hasAny(['approvedAt'])
+        || (existing().status == 'pending' && incoming().status == 'approved' && incoming().approvedAt == request.time);
+    }
+
+    function validPublicationUpdate() {
+      return !incoming().diff(existing()).affectedKeys().hasAny(['published', 'publishedAt', 'publishedBy'])
+        || (incoming().diff(existing()).affectedKeys().hasOnly(['published', 'publishedAt', 'publishedBy', 'updatedAt'])
+          && incoming().updatedAt == request.time
+          && incoming().published is bool
+          && (incoming().published == true
+            ? existing().status == 'approved' && incoming().publishedAt == request.time && incoming().publishedBy == request.auth.uid
+            : !('publishedAt' in incoming()) && !('publishedBy' in incoming())));
     }
 
     function isCoherentHistory(postId) {
@@ -187,8 +203,9 @@ service cloud.firestore {
     // Posts
     match /posts/{postId} {
       allow read: if isAdmin() || hasBrandAccess(existing().brandId) || isOwner(existing().brandId);
-      allow create: if (isAdmin() || hasBrandAccess(incoming().brandId)) && isValidPost(incoming());
-      allow update: if ((isAdmin() || hasBrandAccess(existing().brandId)) && incoming().brandId == existing().brandId && isValidPost(incoming()))
+      allow create: if (isAdmin() || hasBrandAccess(incoming().brandId)) && isValidPost(incoming())
+        && incoming().get('published', false) == false && !('publishedAt' in incoming()) && !('publishedBy' in incoming()) && !('approvedAt' in incoming());
+      allow update: if ((isAdmin() || hasBrandAccess(existing().brandId)) && incoming().brandId == existing().brandId && isValidPost(incoming()) && validPublicationUpdate() && validApprovalTimestamp())
         || (isOwner(existing().brandId) && isValidClientDecision());
       allow delete: if isAdmin() || hasBrandAccess(existing().brandId);
 

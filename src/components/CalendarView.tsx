@@ -9,6 +9,7 @@ import PostModal from './Admin/PostModal';
 import type { Post } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import GlobalModal from './ui/GlobalModal';
+import { postStatusLabels, postTypeLabels } from '../posts/post-labels';
 import { PostMediaCarousel } from './media';
 
 interface CalendarViewProps {
@@ -34,18 +35,19 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
     <div className="space-y-6">
       <div className="flex flex-col gap-4 bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm lg:flex-row lg:items-center lg:justify-between lg:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-          <h2 className="text-2xl font-bold tracking-tight text-black uppercase tracking-widest leading-none">Calendário</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-black leading-tight">Calendário</h2>
           <div className="flex min-w-0 items-center rounded-2xl border border-zinc-200 bg-zinc-50 p-1.5 sm:ml-4">
-            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} className="p-2 hover:bg-black hover:text-white rounded-xl transition-all"><ChevronLeft className="w-5 h-5" /></button>
+            <button onClick={() => setCurrentDate(subMonths(currentDate, 1))} aria-label="Mês anterior" className="min-h-11 min-w-11 p-2 hover:bg-black hover:text-white rounded-xl transition-all"><ChevronLeft className="w-5 h-5" /></button>
             <div className="min-w-0 flex-1 px-2 py-2 text-center text-sm font-bold uppercase text-zinc-600 sm:min-w-[200px] sm:px-6">{format(currentDate, 'MMMM yyyy', { locale: ptBR })}</div>
-            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} className="p-2 hover:bg-black hover:text-white rounded-xl transition-all"><ChevronRight className="w-5 h-5" /></button>
+            <button onClick={() => setCurrentDate(addMonths(currentDate, 1))} aria-label="Próximo mês" className="min-h-11 min-w-11 p-2 hover:bg-black hover:text-white rounded-xl transition-all"><ChevronRight className="w-5 h-5" /></button>
           </div>
         </div>
         <div className="flex flex-wrap gap-3">{isAdmin && <button disabled={!brands.length} onClick={() => { setSelectedDay(new Date()); setEditingPost(null); setPostOpen(true); }} className="min-h-11 rounded-xl bg-black px-5 font-bold text-white disabled:opacity-40"><Plus className="mr-2 inline h-4 w-4" />Novo post</button>}{isAdmin && (
            <select 
             value={selectedBrandId || ''} 
             onChange={(e) => onBrandChange?.(e.target.value)}
-            className="bg-[#FAFAFA] border border-zinc-200 rounded-xl px-6 py-3 text-xs font-bold uppercase tracking-widest focus:outline-none focus:border-black shadow-sm"
+            aria-label="Filtrar calendário por cliente"
+            className="min-h-11 min-w-0 w-full max-w-full bg-[#FAFAFA] border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-black shadow-sm sm:w-auto"
           >
             <option value="">Filtrar Cliente</option>
             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
@@ -53,6 +55,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
         )}</div>
       </div>
 
+      <p className="text-xs text-zinc-500 sm:hidden">Deslize o calendário para ver todos os dias da semana.</p>
       <div className="overflow-x-auto rounded-3xl border border-zinc-200 bg-white shadow-sm"><div className="min-w-[700px]">
         <div className="grid grid-cols-7 border-b border-zinc-100 italic bg-zinc-50/30">
           {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => (
@@ -60,6 +63,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
           ))}
         </div>
         <div className="grid grid-cols-7 divide-x divide-zinc-50 border-b border-zinc-50">
+          {Array.from({ length: monthStart.getDay() }, (_, index) => <div key={`empty-${index}`} aria-hidden="true" className="border-b border-zinc-50 bg-zinc-50/30" />)}
           {days.map((day, idx) => {
             const dayPosts = posts.filter(p => isSameDay(new Date(p.scheduledDate), day));
             return (
@@ -72,7 +76,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
                   {dayPosts.map(p => (
                     <div 
                       key={p.id}
-                      title={`${p.status === 'changes_requested' ? 'Ajustes solicitados' : p.status}: ${p.caption}`}
+                      title={`${postStatusLabels[p.status]}${p.published ? ' · POSTADO' : ''}: ${p.caption}`}
                       className={cn(
                         "text-[9px] font-bold p-2 rounded-xl truncate uppercase tracking-tighter border shadow-sm",
                         p.status === 'approved' ? 'bg-green-50 text-green-600 border-green-100' :
@@ -80,7 +84,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
                         'bg-orange-50 text-orange-600 border-orange-100'
                       )}
                     >
-                      {p.caption}
+                      <span className="block truncate">{p.caption}</span>{p.published && <span className="mt-1 inline-block rounded bg-zinc-900 px-1.5 py-0.5 text-[9px] text-white">POSTADO</span>}
                     </div>
                   ))}
                 </div>
@@ -89,9 +93,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ selectedBrandId, isAdmin, o
           })}
         </div>
       </div></div>
-      {selectedDay && !postOpen && !viewingPost && <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"><section role="dialog" aria-modal="true" aria-label={`Posts de ${format(selectedDay, 'dd/MM/yyyy')}`} className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-3xl bg-white p-6 shadow-2xl"><header className="flex items-center justify-between"><div><h3 className="text-xl font-bold">{format(selectedDay, 'dd/MM/yyyy')}</h3><p className="text-sm text-zinc-500">Conteúdos previstos para esta data</p></div><button aria-label="Fechar dia" onClick={() => setSelectedDay(null)} className="p-3"><X className="h-5 w-5" /></button></header><div className="mt-5 space-y-3">{posts.filter(post => isSameDay(new Date(post.scheduledDate), selectedDay)).map(post => <button key={post.id} onClick={() => { if (isAdmin) { setEditingPost(post); setPostOpen(true); } else setViewingPost(post); }} className="block min-h-11 w-full rounded-xl border p-4 text-left"><strong>{post.caption || 'Conteúdo sem legenda'}</strong><span className="mt-1 block text-xs uppercase text-zinc-500">{post.socialNetwork} · {post.type} · {post.status}</span></button>)}</div>{isAdmin && <button disabled={!brands.length} onClick={() => { setEditingPost(null); setPostOpen(true); }} className="mt-5 min-h-11 w-full rounded-xl bg-black px-5 font-bold text-white disabled:opacity-40"><Plus className="mr-2 inline h-4 w-4" />Adicionar post nesta data</button>}</section></div>}
+      {selectedDay && !postOpen && !viewingPost && <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30 p-4"><section role="dialog" aria-modal="true" aria-label={`Posts de ${format(selectedDay, 'dd/MM/yyyy')}`} className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-3xl bg-white p-6 shadow-2xl"><header className="flex items-center justify-between"><div><h3 className="text-xl font-bold">{format(selectedDay, 'dd/MM/yyyy')}</h3><p className="text-sm text-zinc-500">Conteúdos previstos para esta data</p></div><button aria-label="Fechar dia" onClick={() => setSelectedDay(null)} className="p-3"><X className="h-5 w-5" /></button></header><div className="mt-5 space-y-3">{!posts.some(post => isSameDay(new Date(post.scheduledDate), selectedDay)) && <p className="rounded-xl border border-dashed p-5 text-sm text-zinc-500">Nenhuma publicação prevista para esta data.</p>}{posts.filter(post => isSameDay(new Date(post.scheduledDate), selectedDay)).map(post => <button key={post.id} onClick={() => { if (isAdmin) { setEditingPost(post); setPostOpen(true); } else setViewingPost(post); }} className="block min-h-11 w-full rounded-xl border p-4 text-left"><strong className="break-words">{post.caption || 'Conteúdo sem legenda'}</strong><span className="mt-1 block text-xs uppercase text-zinc-500">{post.socialNetwork} · {postTypeLabels[post.type]} · {postStatusLabels[post.status]}{post.published ? ' · POSTADO' : ''}</span></button>)}</div>{isAdmin && <button disabled={!brands.length} onClick={() => { setEditingPost(null); setPostOpen(true); }} className="mt-5 min-h-11 w-full rounded-xl bg-black px-5 font-bold text-white disabled:opacity-40"><Plus className="mr-2 inline h-4 w-4" />Adicionar post nesta data</button>}</section></div>}
       {isAdmin && postOpen && <PostModal aiEnabled post={editingPost} brandId={editingPost?.brandId ?? selectedBrandId ?? ''} brands={brands} initialDate={selectedDay ? new Date(selectedDay.getFullYear(), selectedDay.getMonth(), selectedDay.getDate(), 12).toISOString() : undefined} onClose={() => setPostOpen(false)} onDelete={isAdministrator && editingPost ? async () => { await remove(editingPost.id); feedback.success('Post movido para a lixeira.'); setPostOpen(false); setSelectedDay(null); } : undefined} onSave={async data => { const target = data.brandId; if (!target) throw new Error('Selecione um cliente.'); if (editingPost) await update(editingPost.id, data); else await create(target, data); feedback.success(editingPost ? 'Post atualizado.' : 'Post criado.'); setPostOpen(false); }} />}
-      {viewingPost && <GlobalModal title="Detalhes do conteúdo" size="lg" onClose={() => setViewingPost(null)}><div className="space-y-5"><div className="overflow-hidden rounded-2xl bg-zinc-100"><PostMediaCarousel post={viewingPost} expandable={false} /></div><div><p className="whitespace-pre-wrap text-sm leading-relaxed">{viewingPost.caption || 'Conteúdo sem legenda.'}</p><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-zinc-500">Data</dt><dd className="font-bold">{new Date(viewingPost.scheduledDate).toLocaleString('pt-BR')}</dd></div><div><dt className="text-zinc-500">Plataforma</dt><dd className="font-bold capitalize">{viewingPost.socialNetwork}</dd></div><div><dt className="text-zinc-500">Status</dt><dd className="font-bold capitalize">{viewingPost.status}</dd></div></dl></div></div></GlobalModal>}
+      {viewingPost && <GlobalModal title="Detalhes do conteúdo" size="lg" onClose={() => setViewingPost(null)}><div className="space-y-5"><div className="overflow-hidden rounded-2xl bg-zinc-100"><PostMediaCarousel post={viewingPost} expandable={false} /></div><div><p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{viewingPost.caption || 'Conteúdo sem legenda.'}</p><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-zinc-500">Data</dt><dd className="font-bold">{new Date(viewingPost.scheduledDate).toLocaleString('pt-BR')}</dd></div><div><dt className="text-zinc-500">Plataforma</dt><dd className="font-bold capitalize">{viewingPost.socialNetwork}</dd></div><div><dt className="text-zinc-500">Status</dt><dd className="font-bold capitalize">{postStatusLabels[viewingPost.status]}{viewingPost.published && <span className="ml-2 inline-block rounded bg-zinc-900 px-2 py-1 text-xs text-white">POSTADO</span>}</dd></div></dl></div></div></GlobalModal>}
     </div>
   );
 };

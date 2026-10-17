@@ -5,6 +5,7 @@ import { Sparkles, TrendingUp, Target, Info, Loader2, Zap, Users } from 'lucide-
 import { cn } from '../lib/utils';
 import { useBrands, useFeedback, useMetrics } from '../hooks';
 import MetricsDialog from './MetricsDialog';
+import { formatMetricNumber, formatMetricCurrency, formatMetricPercent, formatMetricMonth } from '../metrics/metric-format';
 import { useMarketingAI } from '../hooks/useMarketingAI';
 
 interface InsightsViewProps {
@@ -36,10 +37,10 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
     if (active && payload && payload.length) {
       return (
         <div className="bg-white border border-zinc-200 p-4 rounded-2xl shadow-2xl">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-2">{label}</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-2">{label ? formatMetricMonth(label) : label}</p>
           {payload.map((p, i) => (
             <p key={i} className="text-sm font-bold tracking-tight" style={{ color: p.color === '#fff' ? '#000' : p.color }}>
-              {p.name}: {p.value}
+              {p.name}: {typeof p.value === 'number' ? formatMetricNumber(p.value) : p.value}
             </p>
           ))}
         </div>
@@ -52,12 +53,12 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
     <div className="space-y-8">
       <div className="flex flex-col gap-4 bg-white p-5 rounded-3xl border border-zinc-200 shadow-sm lg:flex-row lg:items-center lg:justify-between lg:p-8">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-black uppercase tracking-widest">Insights</h2>
-          <p className="text-zinc-400 text-sm font-medium">Acompanhamento de performance mensal.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-black">Insights</h2>
+          <p className="text-zinc-400 text-sm font-medium">Acompanhamento do desempenho mensal.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
           {isAdmin && (
-            <select value={selectedBrandId || ''} onChange={event => onBrandChange?.(event.target.value)} className="bg-[#FAFAFA] border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-black transition-all">
+            <select aria-label="Selecionar cliente dos Insights" value={selectedBrandId || ''} onChange={event => onBrandChange?.(event.target.value)} className="min-w-0 w-full max-w-full bg-[#FAFAFA] border border-zinc-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-black transition-all sm:w-auto">
               <option value="">Selecionar Cliente</option>
               {brands.map(brand => <option key={brand.id} value={brand.id}>{brand.name}</option>)}
             </select>
@@ -76,30 +77,33 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
             Tráfego Pago
           </button>
           </div>
-          {isAdmin && <button disabled={!selectedBrandId} onClick={() => setEditingMetrics(true)} className="min-h-11 bg-black px-4 text-sm font-bold text-white disabled:opacity-40">Adicionar métricas</button>}
+          {isAdmin && <button disabled={!selectedBrandId} onClick={() => setEditingMetrics(true)} className="min-h-11 rounded-xl bg-black px-4 text-sm font-bold text-white disabled:opacity-40">Adicionar métricas</button>}
         </div>
       </div>
 
       {!selectedBrandId && (
-        <div className="text-center p-20 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
+        <div className="text-center px-5 py-12 bg-zinc-50 rounded-3xl border border-dashed border-zinc-200">
           <p className="text-zinc-400 font-medium font-mono uppercase text-xs tracking-widest">Selecione um cliente para visualizar métricas.</p>
         </div>
       )}
       {editingMetrics && selectedBrandId && <MetricsDialog kind={tab} brandId={selectedBrandId} processing={savingMetrics} onClose={() => setEditingMetrics(false)} onSave={async data => { setSavingMetrics(true); try { const screenshotMediaIds = data.screenshotMediaIds as string[]; if (tab === 'organic') await metrics.saveOrganic({ brandId: selectedBrandId, month: String(data.month), followers: Number(data.followers), engagement: Number(data.engagement), reach: Number(data.reach), impressions: Number(data.impressions), screenshotMediaIds }); else await metrics.savePaid({ brandId: selectedBrandId, month: String(data.month), investment: Number(data.investment), reach: Number(data.reach), impressions: Number(data.impressions), clicks: Number(data.clicks), leads: Number(data.leads), conversions: Number(data.conversions), revenue: Number(data.revenue), screenshotMediaIds }); feedback.success('Métricas salvas.'); setEditingMetrics(false); } finally { setSavingMetrics(false); } }} />}
 
-      {selectedBrandId && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <div className="bg-white border border-zinc-200 rounded-3xl p-8 h-[450px] shadow-sm">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-8 flex items-center gap-2">
+      {metrics.loading && <p role="status" className="py-8 text-center text-sm text-zinc-500">Carregando métricas...</p>}
+      {metrics.error && <p role="alert" className="rounded-xl border border-red-200 p-4 text-sm text-red-700">{metrics.error}</p>}
+      {selectedBrandId && !metrics.loading && !metrics.error && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {!(tab === 'organic' ? organic : paid).length && <p className="rounded-2xl border border-dashed border-zinc-200 p-6 text-center text-sm text-zinc-500 lg:col-span-3">Nenhuma métrica cadastrada para este período. Os valores abaixo representam ausência de dados.</p>}
+          <div className="min-w-0 lg:col-span-2 space-y-6">
+            <div className="bg-white border border-zinc-200 rounded-3xl p-4 sm:p-6 flex h-[400px] min-w-0 flex-col shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500 mb-5 flex shrink-0 items-center gap-2">
                 <TrendingUp className="w-4 h-4" /> Desempenho Mensal
               </h3>
-              <ResponsiveContainer width="100%" height="100%">
+              <div className="min-h-0 min-w-0 flex-1"><ResponsiveContainer width="100%" height="100%">
                 {tab === 'organic' ? (
                   <LineChart data={organic}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="month" stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} tickFormatter={(v) => v.split('-')[1]} />
-                    <YAxis stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="month" stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} tickFormatter={formatMetricMonth} />
+                    <YAxis tickFormatter={formatMetricNumber} stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Line type="monotone" dataKey="followers" stroke="#000" strokeWidth={3} dot={{ r: 4, fill: '#000' }} name="Seguidores" />
                     <Line type="monotone" dataKey="reach" stroke="#999" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 4, fill: '#999' }} name="Alcance" />
@@ -107,30 +111,30 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
                 ) : (
                   <BarChart data={paid}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="month" stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} />
-                    <YAxis stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} />
+                    <XAxis dataKey="month" stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} tickFormatter={formatMetricMonth} />
+                    <YAxis tickFormatter={formatMetricNumber} stroke="#ccc" fontSize={10} axisLine={false} tickLine={false} />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar dataKey="conversions" fill="#000" radius={[4, 4, 0, 0]} name="Conversões" />
                     <Bar dataKey="clicks" fill="#ccc" radius={[4, 4, 0, 0]} name="Cliques" />
                   </BarChart>
                 )}
-              </ResponsiveContainer>
+              </ResponsiveContainer></div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {tab === 'organic' ? (
                 <>
-                  <StatCard label="Seguidores" value={organic.slice(-1)[0]?.followers || 0} />
-                  <StatCard label="Alcance" value={organic.slice(-1)[0]?.reach || 0} />
-                  <StatCard label="Impressões" value={organic.slice(-1)[0]?.impressions || 0} />
-                  <StatCard label="Engajamento" value={`${organic.slice(-1)[0]?.engagement || 0}%`} />
+                  <StatCard label="Seguidores" value={formatMetricNumber(organic.slice(-1)[0]?.followers ?? 0)} />
+                  <StatCard label="Alcance" value={formatMetricNumber(organic.slice(-1)[0]?.reach ?? 0)} />
+                  <StatCard label="Impressões" value={formatMetricNumber(organic.slice(-1)[0]?.impressions ?? 0)} />
+                  <StatCard label="Engajamento" value={formatMetricPercent(organic.slice(-1)[0]?.engagement ?? 0)} />
                 </>
               ) : (
                 <>
-                  <StatCard label="Investido" value={`R$ ${paid.slice(-1)[0]?.investment?.toLocaleString() || 0}`} />
-                  <StatCard label="CTR" value={`${paid.slice(-1)[0]?.ctr || 0}%`} />
-                  <StatCard label="CPC" value={`R$ ${paid.slice(-1)[0]?.cpc || 0}`} />
-                  <StatCard label="Conversões" value={paid.slice(-1)[0]?.conversions || 0} />
+                  <StatCard label="Investimento" value={formatMetricCurrency(paid.slice(-1)[0]?.investment ?? 0)} />
+                  <StatCard label="CTR" value={formatMetricPercent(paid.slice(-1)[0]?.ctr ?? 0)} />
+                  <StatCard label="CPC" value={formatMetricCurrency(paid.slice(-1)[0]?.cpc ?? 0)} />
+                  <StatCard label="Conversões" value={formatMetricNumber(paid.slice(-1)[0]?.conversions ?? 0)} />
                 </>
               )}
             </div>
@@ -189,9 +193,9 @@ const InsightsView: React.FC<InsightsViewProps> = ({ selectedBrandId, isAdmin, o
 };
 
 const StatCard = ({ label, value }: { label: string, value: string | number }) => (
-  <div className="bg-white border border-zinc-200 p-6 rounded-3xl shadow-sm hover:border-black transition-all group">
+  <div className="min-w-0 bg-white border border-zinc-200 p-5 rounded-3xl shadow-sm">
     <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-2">{label}</p>
-    <p className="text-2xl font-bold tracking-tighter text-black group-hover:translate-x-1 transition-transform">{value}</p>
+    <p className="break-words text-xl font-bold tracking-tight tabular-nums text-black">{value}</p>
   </div>
 );
 

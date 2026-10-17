@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteField, doc, getDoc, orderBy, query, serverTimestamp, updateDoc, where, writeBatch, type DocumentData, type Query } from 'firebase/firestore';
+import { addDoc, collection, deleteField, doc, getDoc, orderBy, query, runTransaction, serverTimestamp, updateDoc, where, writeBatch, type DocumentData, type Query } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { Post, PostStatus } from '../../types';
 import { normalizeFirestoreError, subscribeToQuery, type DataListener, type ErrorListener } from '../firebase';
@@ -6,6 +6,23 @@ import { mapPost, toPostWriteData } from '../mappers';
 import { getLocalMonthIsoRange } from '../../posts';
 
 const posts = collection(db, 'posts');
+
+export async function setPostPublished(id: string, published: boolean, actorUid: string): Promise<void> {
+  try {
+    await runTransaction(db, async transaction => {
+      const reference = doc(db, 'posts', id);
+      const snapshot = await transaction.get(reference);
+      if (!snapshot.exists()) throw new Error('Post não encontrado.');
+      if (published && snapshot.data().status !== 'approved') throw new Error('Apenas posts aprovados podem ser marcados como postados.');
+      transaction.update(reference, {
+        published,
+        publishedAt: published ? serverTimestamp() : deleteField(),
+        publishedBy: published ? actorUid : deleteField(),
+        updatedAt: serverTimestamp(),
+      });
+    });
+  } catch (error) { throw normalizeFirestoreError(error, 'publish', 'post'); }
+}
 
 export async function getPostById(id: string): Promise<Post | null> { try { const snapshot = await getDoc(doc(db, 'posts', id)); return snapshot.exists() ? mapPost(snapshot) : null; } catch (error) { throw normalizeFirestoreError(error, 'get', 'post'); } }
 

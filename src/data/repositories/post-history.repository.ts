@@ -19,7 +19,7 @@ export async function createPostHistoryEntry(entry: NewHistoryEntry): Promise<st
 export async function commitPostDecision(postId: string, status: PostStatus, feedback: string, entry: NewHistoryEntry, postChanges: Partial<Post> = {}): Promise<void> {
   try {
     const batch = writeBatch(db); const historyRef = doc(historyCollection(postId));
-    batch.update(doc(db, 'posts', postId), { ...toPostWriteData(postChanges), status, feedback, updatedAt: serverTimestamp() });
+    batch.update(doc(db, 'posts', postId), { ...toPostWriteData(postChanges), status, feedback, ...(status === 'approved' ? { approvedAt: serverTimestamp() } : {}), updatedAt: serverTimestamp() });
     batch.set(historyRef, { ...toPostHistoryWriteData(entry), createdAt: serverTimestamp() });
     await batch.commit();
   } catch (error) { throw normalizeFirestoreError(error, 'commit-decision', 'post-history'); }

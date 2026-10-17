@@ -4,6 +4,12 @@ import { commitPostDecision, createPost as persistPost, getPostById, movePostToT
 import { loadMediaByIds } from './media.service';
 import { POST_FEEDBACK_MAX_LENGTH, POST_FEEDBACK_MIN_LENGTH } from '../posts';
 import { notifyPostApproved, notifyPostChangesRequested, notifyPostCreated, notifyPostRejected, notifyPostResubmitted } from './notifications.service';
+import { setPostPublished } from '../data/repositories';
+
+export async function markPostPublished(id: string, published: boolean, actor: DecisionActor) {
+  if (!actor.actorUid || !['admin', 'manager', 'social_media'].includes(actor.actorRole)) throw new Error('Você não tem permissão para marcar publicações.');
+  await setPostPublished(id, published, actor.actorUid);
+}
 
 export const watchPosts = subscribeToPosts;
 export const watchBrandPosts = subscribeToPostsByBrand;
@@ -11,6 +17,7 @@ export const watchCalendarPosts = subscribeToPostsByMonth;
 export const watchScopedPosts = subscribeToPostsByBrands;
 export const watchScopedCalendarPosts = subscribeToPostsByBrandsAndMonth;
 export const watchPostDecisionHistory = subscribeToPostHistory;
+export const loadPost = getPostById;
 export const trashPost = movePostToTrash;
 export interface DecisionActor { actorUid: string; actorRole: UserRole; }
 

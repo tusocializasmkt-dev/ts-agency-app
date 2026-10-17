@@ -49,7 +49,7 @@ export default function GlobalModal({ title, children, size = 'md', closeOnOverl
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onMouseDown={overlayClick}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1} onKeyDown={trapFocus} className={cn('max-h-[calc(100vh-2rem)] w-full overflow-y-auto bg-white border border-zinc-200 rounded-3xl shadow-2xl p-5 outline-none sm:p-8', sizes[size])}>
-        {(title || showCloseButton) && <div className="flex items-center justify-between gap-6 mb-6">{title && <h2 id={titleId} className="text-2xl font-bold tracking-tight">{title}</h2>}{showCloseButton && <button type="button" onClick={onClose} aria-label="Fechar diálogo" className="ml-auto p-2 rounded-xl hover:bg-zinc-100"><X className="w-5 h-5" /></button>}</div>}
+        {(title || showCloseButton) && <div className="mb-6 flex items-start justify-between gap-3">{title && <h2 id={titleId} className="min-w-0 break-words text-xl font-bold leading-tight tracking-tight sm:text-2xl">{title}</h2>}{showCloseButton && <button type="button" onClick={onClose} aria-label="Fechar diálogo" className="ml-auto flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black"><X className="w-5 h-5" /></button>}</div>}
         {children}
       </div>
     </div>, document.body,

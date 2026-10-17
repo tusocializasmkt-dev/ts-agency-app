@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Post, PostStatus } from '../types';
 import { approvePost, createPost, editPost, rejectPost, requestPostChanges, trashPost, watchBrandPosts, watchCalendarPosts, watchPosts, watchScopedCalendarPosts, watchScopedPosts } from '../services';
 import { useAuth } from '../contexts/AuthContext';
+import { markPostPublished } from '../services/posts.service';
 
 interface UsePostsOptions { brandId?: string | null; month?: string; status?: PostStatus; actorUid?: string; actorRole?: import('../types').UserRole; }
 
@@ -29,6 +30,7 @@ export function usePosts({ brandId, month, status, actorUid = '', actorRole = 'c
 
   return {
     posts, loading, error, resetError: () => setError(null),
+    setPublished: (id: string, published: boolean) => run(() => markPostPublished(id, published, { actorUid, actorRole }), 'Não foi possível atualizar a publicação.'),
     create: (targetBrandId: string, data: Partial<Post>) => run(async () => { await createPost(targetBrandId, data); }, 'Não foi possível criar o post.'),
     update: (id: string, data: Partial<Post>) => run(() => editPost(id, data, { actorUid, actorRole }), 'Não foi possível atualizar o post.'),
     remove: (id: string) => run(() => trashPost(id), 'Não foi possível mover o post para a lixeira.'),

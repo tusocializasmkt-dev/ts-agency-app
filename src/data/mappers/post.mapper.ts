@@ -14,6 +14,7 @@ export function mapPost(snapshot: DocumentSnapshot<DocumentData>): Post {
     scheduledDate: data.scheduledDate ?? data.scheduledAt,
     feedback: data.feedback ?? data.rejectionComment,
     status,
+    published: data.published === true,
     mediaIds,
     coverMediaId: mediaIds?.includes(data.coverMediaId) ? data.coverMediaId : undefined,
     mediaUrls,
