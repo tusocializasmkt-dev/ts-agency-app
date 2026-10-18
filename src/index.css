@@ -63,6 +63,18 @@ svg {
   height: auto;
 }
 
+/* Keep the mobile identity bounded even with tall or padded source images.
+   This unlayered rule must override the global image height above. */
+[data-appearance-header] .agency-mobile-logo {
+  display: block;
+  width: 100%;
+  max-width: 176px;
+  height: 36px;
+  max-height: 36px;
+  object-fit: contain;
+  object-position: left center;
+}
+
 @media (max-width: 768px) {
   html,
   body,

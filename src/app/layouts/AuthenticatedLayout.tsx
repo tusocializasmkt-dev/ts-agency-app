@@ -3,7 +3,7 @@ import { surfaceStyle } from '../../appearance/theme';
 import AnnouncementPopup from '../../communications/AnnouncementPopup';
 import RememberRoute from '../router/RememberRoute';
 import { useCallback, useRef, useState } from 'react';
-import { Menu } from 'lucide-react';
+import MobileHeader from './MobileHeader';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import { useAgencyConfig } from '../../hooks/useAgencyConfig';
@@ -24,12 +24,7 @@ function LayoutContent() {
   return <div className="flex min-h-screen min-w-0 overflow-x-hidden bg-[#FDFDFD] text-black">
     <AnnouncementPopup /><RememberRoute /><Sidebar mobileOpen={mobileMenuOpen} onMobileClose={closeMobileMenu} />
     <div className="flex min-w-0 flex-1 flex-col">
-      <header data-appearance-header style={surfaceStyle(appearance.header)} className="sticky top-0 z-30 flex min-h-16 items-center gap-3 border-b border-zinc-200 bg-white/95 px-4 backdrop-blur lg:hidden">
-        <button ref={menuButtonRef} type="button" aria-label="Abrir menu de navegação" aria-controls="authenticated-navigation" aria-expanded={mobileMenuOpen} onClick={() => setMobileMenuOpen(true)} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black">
-          <Menu className="h-5 w-5" />
-        </button>
-        {config.logoUrl ? <img src={config.logoUrl} alt={config.name ? `Logotipo ${config.name}` : 'Logotipo da agência'} className="h-9 min-w-0 max-w-[11rem] object-contain object-left" /> : <span className="truncate text-sm font-bold uppercase tracking-wider">{config.name || 'TS Agency'}</span>}
-      </header>
+      <MobileHeader logoUrl={config.logoUrl} name={config.name} menuButtonRef={menuButtonRef} menuOpen={mobileMenuOpen} onMenuOpen={() => setMobileMenuOpen(true)} style={surfaceStyle(appearance.header)} />
       <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         <div className="mx-auto w-full max-w-7xl min-w-0 px-4 py-5 sm:p-6 lg:p-8"><Outlet /></div>
       </main>
