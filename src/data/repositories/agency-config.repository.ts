@@ -1,4 +1,4 @@
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import type { AgencyConfig } from '../../types';
 import { normalizeFirestoreError, type DataListener, type ErrorListener } from '../firebase';
@@ -7,7 +7,9 @@ import { mapAgencyConfig, toAgencyConfigWriteData } from '../mappers';
 const configRef = doc(db, 'agency_config', 'default');
 
 export async function updateAgencyLogoUrl(logoUrl: string): Promise<void> {
-  try { await updateDoc(configRef, { logoUrl }); }
+  // The identity document may not have been provisioned yet. Merge only this
+  // field in the named database, preserving all existing agency settings.
+  try { await setDoc(configRef, { logoUrl }, { merge: true }); }
   catch (error) { throw normalizeFirestoreError(error, 'update', 'agency-config'); }
 }
 
