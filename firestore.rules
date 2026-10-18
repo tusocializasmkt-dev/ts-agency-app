@@ -99,18 +99,33 @@ service cloud.firestore {
     }
     function appearanceReader() { return isAdmin() || isTeamMember() || (isSignedIn() && isOwner(request.auth.uid)); }
     function validColor(c) { return c is string && c.matches('^#[0-9a-fA-F]{8}$'); }
-    function validSurface(s) {
-      return s is map && s.keys().hasAll(['color', 'image', 'position', 'scale', 'overlay']) && s.keys().hasOnly(['color', 'image', 'position', 'scale', 'overlay'])
+    function validAppearanceImage(image) {
+      return image is string && image.size() <= 2000
+        && (image == '' || image.matches('^https://firebasestorage[.]googleapis[.]com/v0/b/gen-lang-client-0975642231[.]firebasestorage[.]app/o/agency%2Fappearance%2F[a-zA-Z0-9_.-]+[?]alt=media(&token=[a-zA-Z0-9-]+)?$'));
+    }
+    function validDesktopBackground(d) {
+      return d is map && d.keys().hasAll(['image', 'positionX', 'positionY', 'scale', 'overlayColor', 'overlay'])
+        && d.keys().hasOnly(['image', 'positionX', 'positionY', 'scale', 'overlayColor', 'overlay'])
+        && validAppearanceImage(d.image) && validColor(d.overlayColor)
+        && d.positionX is number && d.positionX >= 0 && d.positionX <= 100
+        && d.positionY is number && d.positionY >= 0 && d.positionY <= 100
+        && d.scale is number && d.scale >= 100 && d.scale <= 200
+        && d.overlay is number && d.overlay >= 0 && d.overlay <= 100;
+    }
+    function validSurface(s, desktopAllowed) {
+      return s is map && s.keys().hasAll(['color', 'image', 'position', 'scale', 'overlay'])
+        && s.keys().hasOnly(desktopAllowed ? ['color', 'image', 'position', 'scale', 'overlay', 'desktopBackground'] : ['color', 'image', 'position', 'scale', 'overlay'])
         && validColor(s.color) && s.image is string && s.image.size() <= 2000
-        && (s.image == '' || s.image.matches('^https://firebasestorage[.]googleapis[.]com/v0/b/gen-lang-client-0975642231[.]firebasestorage[.]app/o/agency%2Fappearance%2F[a-zA-Z0-9_.-]+[?]alt=media(&token=[a-zA-Z0-9-]+)?$'))
+        && validAppearanceImage(s.image)
         && s.position is number && s.position >= 0 && s.position <= 100
         && s.scale is number && s.scale >= 100 && s.scale <= 200
-        && s.overlay is number && s.overlay >= 75 && s.overlay <= 100;
+        && s.overlay is number && s.overlay >= 75 && s.overlay <= 100
+        && (!('desktopBackground' in s) || (desktopAllowed && validDesktopBackground(s.desktopBackground)));
     }
     function validAppearance(d) {
       return d.keys().hasAll(['name', 'sidebar', 'header', 'accent', 'dashboard', 'feed']) && d.keys().hasOnly(['name', 'sidebar', 'header', 'accent', 'dashboard', 'feed'])
         && d.name is string && d.name.size() > 0 && d.name.size() <= 80
-        && validSurface(d.sidebar) && validSurface(d.header) && validColor(d.accent) && validColor(d.dashboard) && validColor(d.feed);
+        && validSurface(d.sidebar, true) && validSurface(d.header, false) && validColor(d.accent) && validColor(d.dashboard) && validColor(d.feed);
     }
     match /appearance/{id} {
       allow read: if id == 'active' && appearanceReader();

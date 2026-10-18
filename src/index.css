@@ -1,6 +1,54 @@
 @import "tailwindcss";
 
 .appearance-root { min-height: 100vh; }
+
+.appearance-desktop-sidebar-preview {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--desktop-sidebar-color);
+  color: var(--desktop-sidebar-text);
+}
+.appearance-desktop-sidebar-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--desktop-sidebar-image);
+  background-position: var(--desktop-sidebar-position);
+  background-size: var(--desktop-sidebar-size);
+  background-repeat: no-repeat;
+  transform: scale(var(--desktop-sidebar-scale));
+  transform-origin: var(--desktop-sidebar-origin);
+}
+@media (min-width: 1024px) {
+  [data-appearance-sidebar] {
+    isolation: isolate;
+    background-color: var(--desktop-sidebar-color) !important;
+    background-image: none !important;
+    color: var(--desktop-sidebar-text) !important;
+  }
+  [data-appearance-sidebar]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image: var(--desktop-sidebar-image);
+    background-position: var(--desktop-sidebar-position);
+    background-size: var(--desktop-sidebar-size);
+    background-repeat: no-repeat;
+    transform: scale(var(--desktop-sidebar-scale));
+    transform-origin: var(--desktop-sidebar-origin);
+  }
+  [data-appearance-sidebar] > div:last-child button {
+    color: var(--desktop-sidebar-text);
+  }
+  [data-appearance-sidebar] > div:last-child button:hover {
+    color: #b91c1c;
+  }
+}
 .appearance-root button.bg-black, .appearance-root a.bg-black {
   background-color: var(--appearance-accent);
   color: var(--appearance-accent-text);

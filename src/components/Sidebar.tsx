@@ -1,5 +1,5 @@
 import { useAppearance } from '../appearance/AppearanceProvider';
-import { surfaceStyle } from '../appearance/theme';
+import { desktopSidebarVariables, surfaceStyle } from '../appearance/theme';
 import { supportUrl } from '../config/support';
 import { clearLastRoute } from '../app/router/last-route';
 import { useEffect, useRef } from 'react';
@@ -80,7 +80,8 @@ export default function Sidebar({ mobileOpen = false, onMobileClose }: SidebarPr
   return (
     <>
       <button type="button" aria-label="Fechar menu" tabIndex={mobileOpen ? 0 : -1} onClick={onMobileClose} className={`fixed inset-0 z-40 bg-black/45 transition-opacity lg:hidden ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`} />
-      <aside style={surfaceStyle(appearance.sidebar)} data-appearance-sidebar id="authenticated-navigation" aria-label="Menu lateral" className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 max-w-[85vw] flex-col overflow-hidden border-r border-zinc-200 bg-white shadow-2xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div aria-hidden="true" className="hidden lg:block lg:w-64 lg:shrink-0" />
+      <aside style={{ ...surfaceStyle(appearance.sidebar), ...desktopSidebarVariables(appearance.sidebar) }} data-appearance-sidebar id="authenticated-navigation" aria-label="Menu lateral" className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-72 max-w-[85vw] flex-col overflow-hidden border-r border-zinc-200 bg-white shadow-2xl transition-transform duration-200 lg:fixed lg:top-0 lg:z-auto lg:h-dvh lg:w-64 lg:max-w-none lg:translate-x-0 lg:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div className="flex min-h-24 items-center gap-3 p-6">{config.logoUrl ? <div className="min-w-0 flex-1"><img src={config.logoUrl} alt={config.name ? `Logotipo ${config.name}` : 'Logotipo da agência'} className="max-h-14 w-full object-contain object-left" />{config.name && <span className="mt-2 block truncate text-xs font-bold uppercase tracking-wider text-zinc-500">{config.name}</span>}</div> : <h1 className="min-w-0 flex-1 text-xl font-bold tracking-tighter uppercase">TS Agency</h1>}<button ref={closeButtonRef} type="button" aria-label="Fechar menu de navegação" onClick={onMobileClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black lg:hidden"><X className="h-5 w-5" /></button></div>
       <nav className="flex-1 space-y-2 overflow-y-auto px-4 pb-4" aria-label="Navegação principal">
         {menuItems.map(item => (
