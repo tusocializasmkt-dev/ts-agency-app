@@ -91,6 +91,44 @@ service cloud.firestore {
           || (incoming().action == 'resubmitted' && incoming().previousStatus in ['rejected', 'changes_requested'] && incoming().newStatus == 'pending' && !('feedback' in incoming())));
     }
 
+    function canEditAppearance() {
+      return isAdmin() && request.auth.token.get('admin', false) == true && request.auth.token.get('appearanceEditor', false) == true;
+    }
+    function canEditCommunications() {
+      return isAdmin() && request.auth.token.get('admin', false) == true && request.auth.token.get('communicationsEditor', false) == true;
+    }
+    function appearanceReader() { return isAdmin() || isTeamMember() || (isSignedIn() && isOwner(request.auth.uid)); }
+    function validColor(c) { return c is string && c.matches('^#[0-9a-fA-F]{8}$'); }
+    function validSurface(s) {
+      return s is map && s.keys().hasAll(['color', 'image', 'position', 'scale', 'overlay']) && s.keys().hasOnly(['color', 'image', 'position', 'scale', 'overlay'])
+        && validColor(s.color) && s.image is string && s.image.size() <= 2000
+        && (s.image == '' || s.image.matches('^https://firebasestorage[.]googleapis[.]com/v0/b/gen-lang-client-0975642231[.]firebasestorage[.]app/o/agency%2Fappearance%2F[a-zA-Z0-9_.-]+[?]alt=media(&token=[a-zA-Z0-9-]+)?$'))
+        && s.position is number && s.position >= 0 && s.position <= 100
+        && s.scale is number && s.scale >= 100 && s.scale <= 200
+        && s.overlay is number && s.overlay >= 75 && s.overlay <= 100;
+    }
+    function validAppearance(d) {
+      return d.keys().hasAll(['name', 'sidebar', 'header', 'accent', 'dashboard', 'feed']) && d.keys().hasOnly(['name', 'sidebar', 'header', 'accent', 'dashboard', 'feed'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && validSurface(d.sidebar) && validSurface(d.header) && validColor(d.accent) && validColor(d.dashboard) && validColor(d.feed);
+    }
+    match /appearance/{id} {
+      allow read: if id == 'active' && appearanceReader();
+      allow create, update: if id == 'active' && canEditAppearance() && validAppearance(incoming());
+    }
+    match /appearance_designs/{id} {
+      allow read: if canEditAppearance();
+      allow create, update: if canEditAppearance() && validAppearance(incoming());
+    }
+    match /communications/{id} {
+      allow read: if canEditCommunications();
+      allow write: if false;
+    }
+    function isPopupDismissal() {
+      return existing().recipientUid == request.auth.uid && existing().type == 'communication' && existing().popup == true
+        && existing().popupDismissedAt == null && incoming().popupDismissedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly(['popupDismissedAt']);
+    }
     function isValidNotification(data) {
       return data.recipientUid is string && data.recipientUid.size() > 0
         && data.type in ['post_created', 'post_approved', 'post_rejected', 'post_changes_requested', 'post_resubmitted', 'invoice_created', 'payment_confirmed', 'payment_promise_requested', 'payment_promise_approved', 'payment_promise_rejected', 'manual']
@@ -167,7 +205,7 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isAdmin() || (isSignedIn() && existing().recipientUid == request.auth.uid);
       allow create: if isAdmin() && isValidNotification(incoming());
-      allow update: if isSignedIn() && (isAdmin() || existing().recipientUid == request.auth.uid) && isReadOnlyUpdate();
+      allow update: if isSignedIn() && (((isAdmin() || existing().recipientUid == request.auth.uid) && isReadOnlyUpdate()) || isPopupDismissal());
       allow delete: if false;
     }
 

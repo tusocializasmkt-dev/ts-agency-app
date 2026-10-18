@@ -64,7 +64,7 @@ const FeedView: React.FC<FeedViewProps> = ({ selectedBrandId, isAdmin, onBrandCh
 
   if (loading) return <div role="status" className="flex items-center justify-center gap-3 p-12 text-sm text-zinc-600"><div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-200 border-t-black" />Carregando publicações...</div>;
 
-  return <div className="space-y-6">
+  return <div className="appearance-feed space-y-6">
     <div className="flex flex-col justify-between gap-4 bg-white p-6 rounded-3xl border border-zinc-200 shadow-sm lg:flex-row lg:items-center">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <h2 className="text-2xl font-bold tracking-tight">Feed de Conteúdo</h2>

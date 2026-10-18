@@ -120,7 +120,9 @@
         { "fieldPath": "mediaType", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
-    }
+    },
+    {"collectionGroup":"communications","queryScope":"COLLECTION","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"scheduledAt","order":"ASCENDING"}]},
+    {"collectionGroup":"notifications","queryScope":"COLLECTION","fields":[{"fieldPath":"recipientUid","order":"ASCENDING"},{"fieldPath":"type","order":"ASCENDING"},{"fieldPath":"popup","order":"ASCENDING"},{"fieldPath":"popupDismissedAt","order":"ASCENDING"},{"fieldPath":"createdAt","order":"ASCENDING"}]}
   ],
   "fieldOverrides": []
 }

@@ -22,7 +22,7 @@ function ClientDashboardContent({ brandId }: { brandId: string }) {
   const pending = posts.filter(post => post.status === 'pending').length;
   const approved = posts.filter(post => post.status === 'approved').length;
   const openInvoices = invoices.filter(invoice => ['pending', 'overdue'].includes(getEffectiveInvoiceStatus(invoice))).length;
-  return <div className="space-y-8">
+  return <div className="appearance-dashboard space-y-8">
     <section className="flex flex-col gap-5 rounded-3xl border bg-white p-6 sm:flex-row sm:items-center">
       <div className={cn('flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-black text-2xl font-bold text-white ring-4 ring-offset-4', getBrandStatusRingClass(status))}>{brand?.logoUrl ? <img src={brand.logoUrl} alt={`Logotipo de ${brand.name}`} className="h-full w-full object-cover" /> : brand?.name?.charAt(0).toUpperCase() ?? '?'}</div>
       <div><p className="text-sm text-zinc-500">Bem-vindo ao portal da sua empresa</p><h1 className="text-2xl font-bold">{brand?.name ?? 'Sua empresa'}</h1><span className={cn('mt-2 inline-block rounded-full border px-3 py-1 text-sm font-bold', getBrandStatusBadgeClass(status))}>Status da conta: {BRAND_STATUS_LABELS[status]}</span></div>

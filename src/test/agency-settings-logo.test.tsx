@@ -1,3 +1,5 @@
+vi.mock('../services/agency-logo-access.service', () => ({ prepareAgencyLogoUpload: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../data/repositories/agency-config.repository', () => ({ updateAgencyLogoUrl: (logoUrl: string) => state.save({ logoUrl }) }));
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ config: { name: 'Agência Teste', logoUrl: 'https://old.test/logo.png', phone: '', email: '', socialLinks: {} }, save: vi.fn(), setConfig: vi.fn(), feedback: { success: vi.fn(), error: vi.fn() } }));
@@ -7,8 +9,17 @@ vi.mock('../services', () => ({ saveAgencyConfig: state.save, watchAgencyConfig:
 vi.mock('../hooks', async () => ({ useAgencyConfig: (await import('../hooks/useAgencyConfig')).useAgencyConfig, useFeedback: () => state.feedback }));
 vi.mock('../data/repositories/storage.repository', () => storage);
 import AgencySettings from '../components/Admin/AgencySettings';
+import { validatePaymentSettings } from '../invoices/payment-settings';
 
 describe('logo nas configurações da agência', () => {
+  it('atualizar logo não depende de validação de configurações alheias à identidade', async () => {
+    Object.assign(state.config, { pixQrCodeUrl: 'legacy-invalid-value' });
+    state.save.mockImplementation(async payload => validatePaymentSettings(payload));
+    render(<AgencySettings />);
+    fireEvent.change(screen.getByLabelText('Selecionar logotipo da agência'), { target: { files: [new File(['png'], 'logo.png', { type: 'image/png' })] } });
+    await waitFor(() => expect(state.feedback.success).toHaveBeenCalledWith('Logotipo da agência atualizado!'));
+    expect(state.save).toHaveBeenCalledWith({ logoUrl: 'https://new.test/logo.png' });
+  });
   beforeEach(() => { vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); storage.deleteStoredFile.mockResolvedValue(undefined); state.config = { name: 'Agência Teste', logoUrl: 'https://old.test/logo.png', phone: '', email: '', socialLinks: {} }; state.setConfig.mockImplementation(next => { state.config = next; }); state.save.mockResolvedValue(undefined); storage.uploadFile.mockReturnValue({ completion: Promise.resolve({ path: 'uploaded' }) }); storage.getFileDownloadUrl.mockResolvedValue('https://new.test/logo.png'); vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() }); });
   afterEach(() => vi.unstubAllGlobals());
   it('aceita imagem, usa o caminho lógico e persiste logoUrl', async () => { render(<AgencySettings />); fireEvent.change(screen.getByLabelText('Selecionar logotipo da agência'), { target: { files: [new File(['png'], 'logo.png', { type: 'image/png' })] } }); expect(screen.getByAltText('Logotipo atual da agência')).toHaveAttribute('src', 'blob:preview'); await waitFor(() => expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ logoUrl: 'https://new.test/logo.png' }))); expect(storage.createStorageReference.mock.calls[0][0]).toMatch(/^agency\/logo\/logo-\d+-[a-f0-9-]+\.png$/); });

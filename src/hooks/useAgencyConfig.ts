@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import type { AgencyConfig } from '../types';
 import { saveAgencyConfig, watchAgencyConfig } from '../services';
 import { uploadAgencyLogo } from '../services/agency-logo.service';
+import { prepareAgencyLogoUpload } from '../services/agency-logo-access.service';
+import { updateAgencyLogoUrl } from '../data/repositories/agency-config.repository';
 
 const emptyConfig: AgencyConfig = { name: '', logoUrl: '', phone: '', email: '', socialLinks: {} };
 
@@ -14,7 +16,8 @@ export function useAgencyConfig() {
   useEffect(() => watchAgencyConfig(data => { setConfig(data); setLoading(false); }, () => { setError('Não foi possível carregar as configurações.'); setLoading(false); }, isTeamMember), [isTeamMember]);
   const save = useCallback(async (data: AgencyConfig) => { setError(null); try { await saveAgencyConfig(data); } catch (cause) { setError('Não foi possível salvar as configurações.'); throw cause; } }, []);
   const changeLogo = async (file: File) => {
-    const logoUrl = await uploadAgencyLogo(file, url => save({ ...config, logoUrl: url }));
+    await prepareAgencyLogoUpload();
+    const logoUrl = await uploadAgencyLogo(file, updateAgencyLogoUrl);
     setConfig(current => ({ ...current, logoUrl }));
   };
   return { config, setConfig, loading, error, save, changeLogo, resetError: () => setError(null) };

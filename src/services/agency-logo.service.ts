@@ -1,6 +1,6 @@
 import { createStorageReference, deleteStoredFile, getFileDownloadUrl, uploadFile } from '../data/repositories/storage.repository';
 
-export type LogoStage = 'validation' | 'upload' | 'url' | 'persist';
+export type LogoStage = 'authorization' | 'validation' | 'upload' | 'url' | 'persist';
 export class AgencyLogoError extends Error {
   constructor(public readonly stage: LogoStage, public readonly code: string, public readonly cleanup: 'not-needed' | 'removed' | 'retained') {
     super('agency-logo-failed');
@@ -8,13 +8,15 @@ export class AgencyLogoError extends Error {
 }
 const allowedTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const maxSize = 5 * 1024 * 1024;
-const knownCodes = new Set(['permission-denied', 'unauthenticated', 'not-found', 'invalid-argument', 'unavailable', 'deadline-exceeded', 'storage/unauthorized', 'storage/object-not-found', 'storage/retry-limit-exceeded']);
+const knownCodes = new Set(['permission-denied', 'unauthenticated', 'not-found', 'invalid-argument', 'unavailable', 'deadline-exceeded', 'storage/unauthorized', 'storage/unauthenticated', 'storage/bucket-not-found', 'storage/project-not-found', 'storage/quota-exceeded', 'storage/object-not-found', 'storage/retry-limit-exceeded', 'functions/unauthenticated', 'functions/permission-denied', 'functions/unavailable', 'functions/not-found', 'functions/internal']);
 function safeCode(error: unknown): string {
   if (!error || typeof error !== 'object') return 'unknown';
   const value = error as { code?: string; cause?: unknown; originalError?: unknown };
   const nested = value.cause ?? value.originalError;
   return nested ? safeCode(nested) : value.code && knownCodes.has(value.code) ? value.code : 'unknown';
 }
+
+export const logoAuthorizationError = (error: unknown) => new AgencyLogoError('authorization', safeCode(error), 'not-needed');
 
 export async function uploadAgencyLogo(file: File, persist: (logoUrl: string) => Promise<void>): Promise<string> {
   if (!allowedTypes.has(file.type)) throw new AgencyLogoError('validation', 'invalid-type', 'not-needed');
@@ -46,6 +48,7 @@ export async function uploadAgencyLogo(file: File, persist: (logoUrl: string) =>
 
 export function agencyLogoErrorMessage(error: unknown): string {
   if (!(error instanceof AgencyLogoError)) return 'Não foi possível atualizar o logotipo.';
+  if (error.stage === 'authorization') return 'Não foi possível autorizar a atualização do logotipo. Entre novamente ou contate o suporte.';
   if (error.code === 'invalid-type') return 'Formato inválido. Use PNG, JPG, JPEG ou WEBP.';
   if (error.code === 'too-large') return 'O logotipo deve ter no máximo 5 MB.';
   if (error.stage === 'persist' && error.cleanup === 'retained' && !['permission-denied', 'unauthenticated', 'not-found', 'invalid-argument'].includes(error.code)) return 'Não foi possível confirmar a gravação do logotipo. Atualize a página para verificar antes de tentar novamente.';

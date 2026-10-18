@@ -1,2 +1,3 @@
+import AppearanceEditor from '../../appearance/AppearanceEditor';
 import AgencySettings from '../../components/Admin/AgencySettings';
-export default function AdminSettingsPage() { return <AgencySettings />; }
+export default function AdminSettingsPage() { return <><AgencySettings /><AppearanceEditor /></>; }

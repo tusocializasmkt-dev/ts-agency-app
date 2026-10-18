@@ -1,5 +1,30 @@
 @import "tailwindcss";
 
+.appearance-root { min-height: 100vh; }
+.appearance-root button.bg-black, .appearance-root a.bg-black {
+  background-color: var(--appearance-accent);
+  color: var(--appearance-accent-text);
+}
+[data-appearance-sidebar] nav a:not([aria-current="page"]),
+[data-appearance-sidebar] > div:first-child span,
+[data-appearance-sidebar] > div:first-child button { color: inherit; }
+[data-appearance-sidebar] nav a[aria-current="page"] {
+  background-color: var(--appearance-accent);
+  color: var(--appearance-accent-text);
+}
+[data-appearance-sidebar] nav a:not([aria-current="page"]):hover {
+  background-color: var(--appearance-accent);
+  color: var(--appearance-accent-text);
+}
+[data-appearance-header] button { color: inherit; }
+[data-appearance-header] button:hover,
+[data-appearance-sidebar] > div:first-child button:hover {
+  background-color: var(--appearance-accent);
+  color: var(--appearance-accent-text);
+}
+.appearance-dashboard > h2, .appearance-dashboard > section:first-child { border-top: 4px solid var(--appearance-dashboard); }
+.appearance-feed > div:first-child { border-top: 4px solid var(--appearance-feed); }
+
 @utility input {
   @apply mt-2 min-h-11 w-full rounded-xl border p-3;
 }

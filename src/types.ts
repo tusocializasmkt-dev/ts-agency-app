@@ -11,7 +11,7 @@ export type PostType = 'feed' | 'reels' | 'stories' | 'carousel' | 'other';
 export type PostStatus = 'pending' | 'approved' | 'rejected' | 'changes_requested' | 'scheduled';
 export type PostDecisionAction = 'approved' | 'rejected' | 'changes_requested' | 'resubmitted';
 export type BillingEvent = 'payment_reported' | 'payment_confirmed' | 'reminder_due_3_days' | 'reminder_due_today' | 'reminder_overdue_1_day' | 'reminder_overdue_7_days' | 'reminder_overdue_9_days' | 'admin_overdue_10_days';
-export type NotificationType = BillingEvent | 'checkout_review' | 'post_created' | 'post_approved' | 'post_rejected' | 'post_changes_requested' | 'post_resubmitted' | 'invoice_created' | 'payment_confirmed' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected' | 'manual';
+export type NotificationType = BillingEvent | 'checkout_review' | 'post_created' | 'post_approved' | 'post_rejected' | 'post_changes_requested' | 'post_resubmitted' | 'invoice_created' | 'payment_confirmed' | 'payment_promise_requested' | 'payment_promise_approved' | 'payment_promise_rejected' | 'manual' | 'communication';
 export type NotificationSource = 'system' | 'admin';
 export type PostObjective = 'venda' | 'engajamento' | 'autoridade' | 'tráfego';
 export type InvoiceStatus = 'payment_reported' | 'pending' | 'overdue' | 'paid' | 'suspended' | 'cancelled';
@@ -131,6 +131,10 @@ export interface PostDecisionHistory {
 }
 
 export interface Notification {
+  imageUrl?: string;
+  communicationId?: string;
+  popup?: boolean;
+  popupDismissedAt?: Date;
   id: string;
   recipientUid: string;
   brandId?: string;

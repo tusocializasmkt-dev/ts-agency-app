@@ -12,6 +12,28 @@ import { createTeamMember as createTeam, resetTeamPassword as resetTeam, updateT
 import { operationalBrand, publicAgency } from './operational-projection.js';
 
 const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-983a0c74-a073-4755-af2a-6e8c97248d58';
+export const manageCommunication = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true }, async request => {
+  const { db } = await getAdminServices();
+  const { assertEditor, manageCommunication } = await import('./communications.js');
+  await assertEditor(db, request.auth?.uid, request.auth?.token);
+  return manageCommunication(db, request.auth!.uid, request.data);
+});
+export const dispatchCommunications = onSchedule({ region: 'southamerica-east1', schedule: 'every 1 minutes', timeZone: 'America/Sao_Paulo', timeoutSeconds: 300, retryCount: 3 }, async () => {
+  const { db } = await getAdminServices();
+  await (await import('./communications.js')).dispatchCommunications(db);
+});
+export const startCommunicationDelivery = onDocumentWritten({ document: 'communications/{id}', database: databaseId, region: 'southamerica-east1', retry: true }, async event => {
+  if (event.data?.after.data()?.status !== 'queued') return;
+  const { db } = await getAdminServices();
+  const { deliverPage } = await import('./communications.js');
+  for (let page = 0; page < 5; page++) if (!await deliverPage(db, event.params.id)) break;
+});
+// Bridge existing Firestore admin authorization to the claim required by Storage.
+// No alternate identity document and no financial configuration is written here.
+export const prepareAgencyLogoUpload = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true }, async request => {
+  const { db, auth } = await getAdminServices();
+  return (await import('./agency-logo-access.js')).prepareLogoAccess(db, auth, request.auth?.uid);
+});
 export const manageInvoiceDocuments = onCall({ region: 'southamerica-east1', invoker: 'public', cors: true, timeoutSeconds: 120 }, async request => {
   const { db, auth } = await getAdminServices();
   const { authenticatedBillingActor } = await import('./invoice-billing.js');

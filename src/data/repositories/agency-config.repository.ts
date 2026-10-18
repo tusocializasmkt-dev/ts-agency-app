@@ -6,6 +6,11 @@ import { mapAgencyConfig, toAgencyConfigWriteData } from '../mappers';
 
 const configRef = doc(db, 'agency_config', 'default');
 
+export async function updateAgencyLogoUrl(logoUrl: string): Promise<void> {
+  try { await updateDoc(configRef, { logoUrl }); }
+  catch (error) { throw normalizeFirestoreError(error, 'update', 'agency-config'); }
+}
+
 export const subscribeToAgencyConfig = (onData: DataListener<AgencyConfig>, onError: ErrorListener, publicOnly = false) =>
   onSnapshot(publicOnly ? doc(db, 'agency_public', 'default') : configRef, { includeMetadataChanges: true }, snapshot => {
     // Keep the last committed identity while a local write is still pending.

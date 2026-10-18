@@ -4,7 +4,7 @@ const db = vi.hoisted(() => ({ databaseId: 'ai-studio-983a0c74-a073-4755-af2a-6e
 const sdk = vi.hoisted(() => ({ doc: vi.fn((db, collection, id) => ({ db, collection, id })), onSnapshot: vi.fn(), updateDoc: vi.fn() }));
 vi.mock('../lib/firebase', () => ({ db }));
 vi.mock('firebase/firestore', () => sdk);
-import { subscribeToAgencyConfig, updateAgencyConfig } from '../data/repositories/agency-config.repository';
+import { subscribeToAgencyConfig, updateAgencyConfig, updateAgencyLogoUrl } from '../data/repositories/agency-config.repository';
 beforeEach(() => { vi.clearAllMocks(); sdk.updateDoc.mockResolvedValue(undefined); });
 it('grava configuração no documento default da instância db compartilhada', async () => {
   await updateAgencyConfig({ name: 'Agência', logoUrl: 'https://example.test/logo.png', phone: '', email: '', socialLinks: {} });
@@ -21,3 +21,5 @@ it('não publica logo otimista enquanto escrita ainda pode ser rejeitada', () =>
   next({ metadata: { hasPendingWrites: true }, data: () => ({ logoUrl: 'pending' }) }); expect(onData).not.toHaveBeenCalled();
   next({ metadata: { hasPendingWrites: false }, data: () => ({ logoUrl: 'committed' }) }); expect(onData).toHaveBeenCalledWith({ logoUrl: 'committed' });
 });
+
+it("persiste apenas logoUrl sem regravar outros campos da agência", async () => { await updateAgencyLogoUrl("https://logo.test/new.png"); expect(sdk.updateDoc).toHaveBeenCalledWith({ db, collection: "agency_config", id: "default" }, { logoUrl: "https://logo.test/new.png" }); });
