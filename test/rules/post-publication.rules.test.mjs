@@ -1,7 +1,10 @@
 import { readFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
 import test, { before, after } from 'node:test';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp, deleteField } from 'firebase/firestore';
+import { tsImport } from 'tsx/esm/api';
+const { mapPost, toPostWriteData } = await tsImport('../../src/data/mappers/post.mapper.ts', import.meta.url);
 let environment;
 before(async () => {
   environment = await initializeTestEnvironment({ projectId: 'demo-ts-publication', firestore: { rules: readFileSync('firestore.rules', 'utf8') } });
@@ -19,6 +22,29 @@ before(async () => {
 });
 after(async () => environment?.cleanup());
 const publication = uid => ({ published: true, publishedBy: uid, publishedAt: serverTimestamp(), updatedAt: serverTimestamp() });
+test('edição de data reproduz payload negado e preserva publicação com o mapper corrigido', async () => {
+  for (const uid of ['admin', 'manager', 'social']) {
+    for (const published of [undefined, false, true]) {
+      const id = `date-${uid}-${String(published)}`;
+      const original = { brandId: 'client', type: 'carousel', socialNetwork: 'instagram', status: 'pending',
+        scheduledDate: '2026-10-21T17:00:00.000Z', caption: 'Legenda original',
+        mediaIds: ['m2', 'm1'], coverMediaId: 'm1', mediaUrls: ['https://example.test/legacy.png'],
+        objective: 'venda', createdAt: 'preservar' };
+      if (published !== undefined) original.published = published;
+      if (published) { original.status = 'approved'; original.publishedBy = 'admin'; original.publishedAt = 'preservar'; }
+      await environment.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'posts', id), original));
+      const reference = doc(environment.authenticatedContext(uid).firestore(), 'posts', id);
+      const mapped = mapPost(await getDoc(reference));
+      const scheduledDate = '2026-10-28T17:00:00.000Z'; // 14h em São Paulo
+      const oldPayload = Object.fromEntries(Object.entries({ ...mapped, scheduledDate }).filter(([key, value]) => key !== 'id' && value !== undefined));
+      if (published === undefined) await assertFails(updateDoc(reference, { ...oldPayload, updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(reference, { ...toPostWriteData({ ...mapped, scheduledDate }), updatedAt: serverTimestamp() }));
+      const saved = (await getDoc(reference)).data();
+      const { updatedAt, ...content } = saved;
+      assert.deepStrictEqual(content, { ...original, scheduledDate });
+    }
+  }
+});
 test('somente admin e equipe ativa da marca marcam e desmarcam', async () => {
   for (const uid of ['admin', 'manager', 'social', 'client', 'outside', 'inactive']) {
     const reference = doc(environment.authenticatedContext(uid).firestore(), 'posts', uid);

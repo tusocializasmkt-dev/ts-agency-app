@@ -4,9 +4,32 @@ const service = vi.hoisted(() => ({ loadMediaByIds: vi.fn(), prepareMediaUpload:
 vi.mock('../services/media.service', () => service);
 vi.mock('../components/media/MediaPicker', () => ({ default: ({ onConfirm, onCancel }: { onConfirm: (ids: string[]) => void; onCancel: () => void }) => <div><button onClick={() => onConfirm(['m1', 'm2', 'm3'])}>Escolher três</button><button onClick={onCancel}>Cancelar picker</button></div> }));
 import PostModal from '../components/Admin/PostModal';
+import { mapPost, toPostWriteData } from '../data/mappers/post.mapper';
 const assets = ['m1', 'm2', 'm3'].map((id, index) => ({ id, brandId: 'b', originalFileName: `Mídia ${index + 1}`, mediaType: index === 2 ? 'video' : 'image', downloadUrl: `https://example.test/${id}` }));
 
 describe('PostModal media integration', () => {
+  it.each([undefined, false, true])('edita somente data/hora e preserva conteúdo e publicação (%s)', async published => {
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/Sao_Paulo');
+    const original = { brandId: 'b', type: 'carousel', socialNetwork: 'instagram', caption: 'Legenda preservada',
+      scheduledDate: '2026-10-21T17:00:00.000Z', status: published ? 'approved' : 'pending',
+      mediaIds: ['m2', 'm1'], coverMediaId: 'm1', mediaUrl: 'https://example.test/legacy.jpg',
+      objective: 'venda', ...(published === undefined ? {} : { published }),
+      ...(published ? { publishedBy: 'admin', publishedAt: 'preservar' } : {}) };
+    const post = mapPost({ id: 'p', data: () => original } as never);
+    const save = vi.fn();
+    const { container } = render(<PostModal post={post} onClose={vi.fn()} onSave={save} />);
+    await screen.findByText(/1\. Mídia 2/);
+    const input = container.querySelector('input[type="datetime-local"]')!;
+    expect(input).toHaveValue('2026-10-21T14:00');
+    fireEvent.change(input, { target: { value: '2026-10-28T14:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const payload = toPostWriteData(save.mock.calls[0][0]);
+    expect(payload).not.toHaveProperty('published');
+    expect(payload).not.toHaveProperty('publishedAt');
+    expect(payload).not.toHaveProperty('publishedBy');
+    expect({ ...original, ...payload }).toEqual({ ...original, scheduledDate: '2026-10-28T17:00:00.000Z' });
+  });
   beforeEach(() => {
     service.failUpload = false;
     vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() });

@@ -22,7 +22,9 @@ export function mapPost(snapshot: DocumentSnapshot<DocumentData>): Post {
 }
 
 export function toPostWriteData(data: Partial<Post>): Record<string, unknown> {
-  const { id, ...record } = data;
+  // Publication fields are written only by setPostPublished, never by content edits.
+  // mapPost supplies published=false even when the stored document has no field.
+  const { id, published, publishedAt, publishedBy, ...record } = data;
   const mediaIds = record.mediaIds ? [...new Set(record.mediaIds.filter(Boolean))] : undefined;
   const coverMediaId = record.coverMediaId && mediaIds?.includes(record.coverMediaId) ? record.coverMediaId : undefined;
   return removeUndefined({ ...record, mediaIds, coverMediaId });
