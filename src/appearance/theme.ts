@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 
 export interface Surface { color: string; image: string; position: number; scale: number; overlay: number }
-export interface Appearance { name: string; sidebar: Surface; header: Surface; accent: string; dashboard: string; feed: string }
+export interface DesktopBackground { image: string; positionX: number; positionY: number; scale: number; overlayColor: string; overlay: number }
+export interface SidebarSurface extends Surface { desktopBackground?: DesktopBackground }
+export interface Appearance { name: string; sidebar: SidebarSurface; header: Surface; accent: string; dashboard: string; feed: string }
 const surface = (): Surface => ({ color: '#ffffffff', image: '', position: 50, scale: 100, overlay: 85 });
 export const defaultAppearance: Appearance = { name: 'Original TS Agency', sidebar: surface(), header: surface(), accent: '#000000ff', dashboard: '#e4e4e7ff', feed: '#e4e4e7ff' };
 export const validColor = (value: unknown): value is string => typeof value === 'string' && /^#[\da-f]{8}$/i.test(value);
@@ -11,7 +13,28 @@ export function validImage(value: unknown): value is string {
 export function isAppearance(value: unknown): value is Appearance {
   if (!value || typeof value !== 'object') return false;
   const t = value as Appearance;
-  return typeof t.name === 'string' && t.name.trim().length > 0 && t.name.length <= 80 && [t.accent, t.dashboard, t.feed].every(validColor) && [t.sidebar, t.header].every(s => s && validColor(s.color) && validImage(s.image) && Number.isFinite(s.position) && s.position >= 0 && s.position <= 100 && Number.isFinite(s.scale) && s.scale >= 100 && s.scale <= 200 && Number.isFinite(s.overlay) && s.overlay >= 75 && s.overlay <= 100);
+  return typeof t.name === 'string' && t.name.trim().length > 0 && t.name.length <= 80 && [t.accent, t.dashboard, t.feed].every(validColor) && [t.sidebar, t.header].every(s => s && validColor(s.color) && validImage(s.image) && Number.isFinite(s.position) && s.position >= 0 && s.position <= 100 && Number.isFinite(s.scale) && s.scale >= 100 && s.scale <= 200 && Number.isFinite(s.overlay) && s.overlay >= 75 && s.overlay <= 100) && (t.sidebar.desktopBackground === undefined || isDesktopBackground(t.sidebar.desktopBackground));
+}
+export function isDesktopBackground(value: unknown): value is DesktopBackground {
+  if (!value || typeof value !== 'object') return false;
+  const d = value as DesktopBackground;
+  return validImage(d.image) && validColor(d.overlayColor) && [d.positionX, d.positionY, d.overlay].every(n => Number.isFinite(n) && n >= 0 && n <= 100) && Number.isFinite(d.scale) && d.scale >= 100 && d.scale <= 200;
+}
+export function getDesktopBackground(s: SidebarSurface): DesktopBackground {
+  return s.desktopBackground || { image: s.image, positionX: 50, positionY: s.position, scale: s.scale, overlayColor: s.color, overlay: s.overlay };
+}
+export function desktopSidebarVariables(s: SidebarSurface): CSSProperties {
+  const d = getDesktopBackground(s);
+  const style = d.image ? surfaceStyle({ color: d.overlayColor, image: d.image, position: d.positionY, scale: d.scale, overlay: d.overlay }) : surfaceStyle({ ...s, image: '' });
+  return {
+    '--desktop-sidebar-color': opaqueColor(s.color),
+    '--desktop-sidebar-text': style.color,
+    '--desktop-sidebar-image': style.backgroundImage,
+    '--desktop-sidebar-position': `${d.positionX}% ${d.positionY}%`,
+    '--desktop-sidebar-size': s.desktopBackground ? 'cover' : style.backgroundSize,
+    '--desktop-sidebar-scale': s.desktopBackground && d.image ? d.scale / 100 : 1,
+    '--desktop-sidebar-origin': `${d.positionX}% ${d.positionY}%`,
+  } as CSSProperties;
 }
 // Composite transparent colors on the white application canvas before choosing text.
 export function opaqueColor(color: string): string {
