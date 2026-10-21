@@ -8,6 +8,7 @@ import { formatPostDateTimeForInput, localPostDateTimeToISOString } from '../../
 import { MediaPicker } from '../media';
 import UploadQueue from '../media/UploadQueue';
 import PostAiAssistant from '../ai/PostAiAssistant';
+import { PersistenceError } from '../../data/firebase/firestore.errors';
 
 interface PostModalProps { post?: Post | null; brandId?: string; brands?: Brand[]; initialDate?: string; aiEnabled?: boolean; onClose: () => void; onDelete?: () => void | Promise<void>; onSave: (data: Partial<Post>) => void | Promise<void>; }
 
@@ -44,7 +45,13 @@ export default function PostModal({ post, brandId = '', brands = [], initialDate
     const completedIds = upload.items.filter(item => item.state === 'completed').map(item => item.mediaId ?? item.id);
     const finalSelectedIds = [...new Set([...selectedIds, ...completedIds])];
     try { await onSave({ ...formData, brandId: targetBrandId, mediaIds: finalSelectedIds, coverMediaId: finalSelectedIds.length ? coverMediaId ?? finalSelectedIds[0] : undefined }); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o post.'); }
+    catch (cause) {
+      if (cause instanceof PersistenceError) {
+        // Keep the failing stage visible without logging captions, URLs or credentials.
+        console.error('post_save_failed', { operation: cause.operation, entity: cause.entity, code: cause.code ?? 'unknown' });
+      }
+      setError(cause instanceof Error ? cause.message : 'Não foi possível salvar o post.');
+    }
     finally { setSaving(false); }
   };
   const byId = new Map(assets.map(asset => [asset.id, asset]));

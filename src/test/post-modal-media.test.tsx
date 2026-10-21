@@ -8,7 +8,7 @@ import { mapPost, toPostWriteData } from '../data/mappers/post.mapper';
 const assets = ['m1', 'm2', 'm3'].map((id, index) => ({ id, brandId: 'b', originalFileName: `Mídia ${index + 1}`, mediaType: index === 2 ? 'video' : 'image', downloadUrl: `https://example.test/${id}` }));
 
 describe('PostModal media integration', () => {
-  it.each([undefined, false, true])('edita somente data/hora e preserva conteúdo e publicação (%s)', async published => {
+  it.each([undefined, false, true].flatMap(published => ['caption', 'scheduledDate'].map(field => ({ published, field }))))('edita $field e preserva conteúdo e publicação ($published)', async ({ published, field }) => {
     expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe('America/Sao_Paulo');
     const original = { brandId: 'b', type: 'carousel', socialNetwork: 'instagram', caption: 'Legenda preservada',
       scheduledDate: '2026-10-21T17:00:00.000Z', status: published ? 'approved' : 'pending',
@@ -21,14 +21,16 @@ describe('PostModal media integration', () => {
     await screen.findByText(/1\. Mídia 2/);
     const input = container.querySelector('input[type="datetime-local"]')!;
     expect(input).toHaveValue('2026-10-21T14:00');
-    fireEvent.change(input, { target: { value: '2026-10-28T14:00' } });
+    const changes = field === 'caption' ? { caption: 'Legenda revisada' } : { scheduledDate: '2026-10-28T17:00:00.000Z' };
+    if (field === 'caption') fireEvent.change(screen.getByRole('textbox'), { target: { value: changes.caption } });
+    else fireEvent.change(input, { target: { value: '2026-10-28T14:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const payload = toPostWriteData(save.mock.calls[0][0]);
     expect(payload).not.toHaveProperty('published');
     expect(payload).not.toHaveProperty('publishedAt');
     expect(payload).not.toHaveProperty('publishedBy');
-    expect({ ...original, ...payload }).toEqual({ ...original, scheduledDate: '2026-10-28T17:00:00.000Z' });
+    expect({ ...original, ...payload }).toEqual({ ...original, ...changes });
   });
   beforeEach(() => {
     service.failUpload = false;

@@ -22,10 +22,11 @@ before(async () => {
 });
 after(async () => environment?.cleanup());
 const publication = uid => ({ published: true, publishedBy: uid, publishedAt: serverTimestamp(), updatedAt: serverTimestamp() });
-test('edição de data reproduz payload negado e preserva publicação com o mapper corrigido', async () => {
-  for (const uid of ['admin', 'manager', 'social']) {
+test('edição de legenda/data reproduz payload antigo negado e preserva publicação com o mapper atual', async () => {
+  const cases = ['caption', 'scheduledDate'].flatMap(field => ['admin', 'manager', 'social'].map(uid => ({ field, uid })));
+  for (const { field, uid } of cases) {
     for (const published of [undefined, false, true]) {
-      const id = `date-${uid}-${String(published)}`;
+      const id = `${field}-${uid}-${String(published)}`;
       const original = { brandId: 'client', type: 'carousel', socialNetwork: 'instagram', status: 'pending',
         scheduledDate: '2026-10-21T17:00:00.000Z', caption: 'Legenda original',
         mediaIds: ['m2', 'm1'], coverMediaId: 'm1', mediaUrls: ['https://example.test/legacy.png'],
@@ -35,13 +36,13 @@ test('edição de data reproduz payload negado e preserva publicação com o map
       await environment.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'posts', id), original));
       const reference = doc(environment.authenticatedContext(uid).firestore(), 'posts', id);
       const mapped = mapPost(await getDoc(reference));
-      const scheduledDate = '2026-10-28T17:00:00.000Z'; // 14h em São Paulo
-      const oldPayload = Object.fromEntries(Object.entries({ ...mapped, scheduledDate }).filter(([key, value]) => key !== 'id' && value !== undefined));
+      const changes = field === 'caption' ? { caption: 'Legenda revisada' } : { scheduledDate: '2026-10-28T17:00:00.000Z' }; // 14h em São Paulo
+      const oldPayload = Object.fromEntries(Object.entries({ ...mapped, ...changes }).filter(([key, value]) => key !== 'id' && value !== undefined));
       if (published === undefined) await assertFails(updateDoc(reference, { ...oldPayload, updatedAt: serverTimestamp() }));
-      await assertSucceeds(updateDoc(reference, { ...toPostWriteData({ ...mapped, scheduledDate }), updatedAt: serverTimestamp() }));
+      await assertSucceeds(updateDoc(reference, { ...toPostWriteData({ ...mapped, ...changes }), updatedAt: serverTimestamp() }));
       const saved = (await getDoc(reference)).data();
       const { updatedAt, ...content } = saved;
-      assert.deepStrictEqual(content, { ...original, scheduledDate });
+      assert.deepStrictEqual(content, { ...original, ...changes });
     }
   }
 });
